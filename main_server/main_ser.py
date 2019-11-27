@@ -1,5 +1,5 @@
 from flask import Flask,request,jsonify
-from server_find import __getService
+from main_server.server_find import __getService
 import logging
 
 '''主服务框架'''

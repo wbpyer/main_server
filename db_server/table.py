@@ -1,7 +1,7 @@
-import sqlalchemy
+
 import datetime
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column,Integer,String,DateTime,ForeignKey
+from sqlalchemy import Column,Integer,String,DateTime,ForeignKey,Text
 from sqlalchemy.orm import sessionmaker,relationship
 
 
@@ -18,24 +18,36 @@ class User_excel(Base):
 
     id = Column(Integer, primary_key=True)
     filename = Column(String(64), nullable=False)
-    path = Column(String(64), nullable=False, unique=True)
+    path = Column(String(200), nullable=False, unique=True)
     created_date = Column(DateTime, default=datetime.datetime.utcnow)
 
     deleted = Column(Integer, default=0, nullable=False)
     user_id = Column(Integer, nullable=False)
+    user_name = Column(String(20),nullable=False)
+    role = Column(String(20), nullable=False)
     role_id = Column(Integer, nullable=False)
-    depart_id = Column(Integer, nullable=True)
+    department_id = Column(Integer, nullable=True)
+    department = Column(String(20),nullable=True)
     read = Column(Integer, nullable=True)
-    leader = Column(String(20), nullable=True)
+    any = Column(String(20), nullable=True)
     status_id = Column(Integer, ForeignKey("status.id"))
-
+    status = relationship("Status",back_populates= "exceles")
     date_id = Column(Integer, ForeignKey("date_name.id"))
+    date = relationship("Date_name", back_populates="exceles")
+
     # 外键关系
     work_id = Column(Integer, ForeignKey("work_name.id"))
+    work =  relationship("Work_name", back_populates="exceles")
+
+
+    # file_type = Column(Integer,ForeignKey("file_type.id"),nullable=True)
+
 
     # def __repr__(self):
     #     return "{}id={} name{} ".format(self.__class__.__name__,self.id,
     #                                          self.filename)
+
+
 
 
 class Vm_last_status(Base):
@@ -44,13 +56,16 @@ class Vm_last_status(Base):
 
     id = Column(Integer, primary_key=True)
     filename = Column(String(64), nullable=False)
-    path = Column(String(64), nullable=False, unique=True)
+    path = Column(String(256), nullable=False, unique=True)
     created_date = Column(DateTime, default=datetime.datetime.utcnow)
 
     deleted = Column(Integer, default=0, nullable=False)
     user_id = Column(Integer, nullable=False)
+    user_name = Column(String(20),nullable=False)
+    role = Column(String(20), nullable=True)
     role_id = Column(Integer, nullable=False)
-    depart_id = Column(Integer, nullable=True)
+    department_id = Column(Integer, nullable=True)
+    department = Column(String(20),nullable=True)
     read = Column(Integer, nullable=True)
     leader = Column(String(20), nullable=True)
     # status_id
@@ -67,7 +82,8 @@ class Status(Base):
     id = Column(Integer, primary_key=True)
     status_name = Column(String(5), nullable=False)
     # 下面这个不是字段，是为了方便查询，反向查询，比如某一个状态下有多少个表，就可以利用这个区查询。
-    excel = relationship("User_excel", backref="status")
+    exceles = relationship("User_excel", back_populates="status")
+
 
 
 class Date_name(Base):
@@ -77,7 +93,7 @@ class Date_name(Base):
     __tablename__ = "date_name"
     id = Column(Integer, primary_key=True)
     date_name = Column(String(5), nullable=False)
-    excel = relationship("User_excel", backref="date_name")
+    exceles = relationship("User_excel", back_populates="date")
 
 
 class Work_name(Base):
@@ -88,4 +104,21 @@ class Work_name(Base):
     id = Column(Integer, primary_key=True)
     work_name = Column(String(5), nullable=False)
 
-    excel = relationship("User_excel", backref="work_name")
+    exceles = relationship("User_excel", back_populates="work")
+
+
+
+# class File_type(Base):
+#     """
+#     文件类型表
+#
+#     """
+#     __tablename__= "file_type"
+#
+#     id = Column(Integer, primary_key=True)
+#     file_type = Column(String(5), nullable=False)
+#
+#     # exceles = relationship("User_excel", back_populates="work")
+#
+#
+
