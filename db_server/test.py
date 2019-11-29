@@ -23,18 +23,14 @@ Session = sessionmaker(bind=engine)
 session = Session()
 
 
-name = session.query(User_excel).filter(User_excel.filename =="11.1800000.txt" ).all()
+name = session.query(User_excel).filter(User_excel.filename !="11.18.txt" ).all()
 print(name)
 if name:
     for i in name:
         print(i.path)
-        i.path = "我被更改了"
-        try:
-            session.add(i)
-            session.commit()
-        except Exception as e:
-            session.rollback()
-            print(e, "记录日志")
 
 # for i in name:
 #     print(i)
+
+
+

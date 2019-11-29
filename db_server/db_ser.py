@@ -8,6 +8,9 @@ from sqlalchemy_utils import database_exists,create_database
 
 
 
+
+
+
 app = Flask(__name__)
 
 #这里由两种传参方式，json，还是直接restful
@@ -173,8 +176,9 @@ def excel_delete(db_name):
         work_id =4
     # file_type_id = data.get("file_type_id")  0.1暂时先不考虑。先放空
 
-
-    name = session.query(User_excel).filter(User_excel.filename == filename).all()
+    #查询条件更加精准化，理论上，一定会有重名文件，因为是多级目录，所以一定要精准，这样就没问题了
+    name = session.query(User_excel).filter(User_excel.filename == filename).filter(User_excel.work_id == work_id).filter(User_excel.date_id ==
+        date_id).all()
 
     if name:
         for i in name:
@@ -190,6 +194,8 @@ def excel_delete(db_name):
             except Exception as e:
                 session.rollback()
                 print(e, "记录日志")
+
+        return "ok",200
     else:
         if all([department,department_id]):
 
@@ -212,6 +218,8 @@ def excel_delete(db_name):
             session.rollback()
             print(e,"记录日志")
             return "not ok",404
+
+
 
 @app.route("/db/<string:db_name>/excel/add",methods=['POST'])
 def excel_add(db_name):
@@ -281,10 +289,11 @@ def excel_add(db_name):
     # file_type_id = data.get("file_type_id")  0.1暂时先不考虑。先放空
 
 
-    name = session.query(User_excel).filter(User_excel.filename == filename).all()
+    file = session.query(User_excel).filter(User_excel.filename == filename).filter(User_excel.status_id == status_id).filter(User_excel.date_id == date_id)\
+        .filter(User_excel.work_id == work_id).all()
 
-    if name:
-        for i in name:
+    if file:
+        for i in file:
             print(i.path)
             delete_fdfs(i.path)
             i.path = filepath
@@ -406,8 +415,13 @@ def excel_add_leader(db_name):
 
 @app.route("/mysql/<string:db_name>/excel/find",methods=['POST'])
 def vm_latest_find(db_name):
+    """
+    查找最后一次虚拟机状态
+    :param db_name:
+    :return:
+    """
     # data = request.json
-    #
+
     # role = data.get("role")
     # user_name = data.get('user_name')
     # user_id = data.get('user_id')
@@ -423,16 +437,50 @@ def vm_latest_find(db_name):
     Session = sessionmaker(bind=engine)
     session = Session()
     """这里是固定的逻辑，就是查这张表中，最后一次记录里的地址返回来就行。"""
-    v = session.query(Vm_last_status).order_by(Vm_last_status.id).limit(1).one()
-    # print(session.query(User).filter(User.username != 'budong').order_by(User.username).all())
 
-    print(v.filename)
-    if json.dumps(v):
-        return json.dumps(v.filename)
+    if session.query(Vm_last_status).all():
+        v = session.query(Vm_last_status).order_by(Vm_last_status.id.desc()).limit(1).one()
+
+        print(v.id)
+
+        filepath = v.path
+        print(filepath)
+        return jsonify(filepath)
     else:
-        return json.dumps(None)  # null
+        return jsonify(None)
 
 
+
+@app.route("/mysql/<string:db_name>/excel/find/submit",methods=['POST'])
+def vm_latest_find_submit(db_name):
+    """
+    查找下级报送给上级的路径。
+    :param db_name:
+    :return:
+    """
+    data = request.json
+
+    # role = data.get("role")
+    user_name = data.get('user_name')
+    user_id = data.get('user_id')
+    # job_id = data.get("job_id")
+    # db_name = str(user_id) + user_name + str(job_id) + role
+    print(db_name)
+
+    database = db_name
+    conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+    engine = sqlalchemy.create_engine(conn_str, echo=True)
+
+    # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    """这里是固定的逻辑，就是查这张表中，最后一次记录里的地址返回来就行。"""
+
+    files = session.query(User_excel).filter(User_excel.user_name != user_name).all()
+
+    d = [(file.filename,file.path,file.work_id,file.date_id)  for file in files ]
+
+    return jsonify(d)
 
 
 
