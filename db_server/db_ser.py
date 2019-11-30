@@ -1,128 +1,29 @@
 import sqlalchemy
-import json
+# import json
+from consulate import Consul
 from flask import Flask,request,jsonify
 from db_server.utils import delete_fdfs
 from sqlalchemy.orm import sessionmaker,relationship
-from db_server.table import User_excel,Vm_last_status,Base,Status,Date_name,Work_name
-from sqlalchemy_utils import database_exists,create_database
-
-
-
-
+from db_server.table import User_excel,Vm_last_status
+from db_server.show import mysql
+from flask_cors import CORS
 
 
 app = Flask(__name__)
+CORS(app)
 
 #这里由两种传参方式，json，还是直接restful
 host = '192.168.29.129'
 user = 'root'
 password = ''
 port = 3306
+consul = Consul(host='192.168.29.129', port=8500)   # 服务发现集群consul连接器。
 
-
-
-@app.route("/mysql/create",methods=['POST'])
-def create_db():
-    """
-    创建数据库的接口，并可以直接完成表的迁移，这个是给人事用。
-
-    :return:
-    """
-
-    data = request.form
-    user_id = data.get("id")
-    user_name = data.get("name")
-    user_role = data.get("role")
-    user_work_id = data.get("work_id")
-    database = str(user_id) + user_name + str(user_work_id) + user_role
-
-    conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
-    engine = sqlalchemy.create_engine(conn_str, echo=True)
-
-    if database_exists(engine.url):
-        print(engine.url)
-
-        Base.metadata.drop_all(engine)
-        return "数据库存在，清楚成功"
-
-    else:
-        create_database(engine.url)
-        Base.metadata.create_all(engine)
-
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
-    s = Status(status_name ="草")
-    s1 = Status(status_name="报")
-    s2 = Status(status_name="副")
-    s3 = Status(status_name="垃")
-    d1 = Date_name(date_name = "日")
-    d2 = Date_name(date_name = "周")
-    d3 =Date_name(date_name = "月")
-    d4 =Date_name(date_name = "年")
-    w1 = Work_name(work_name = "人")
-    w2 = Work_name(work_name = "机")
-    w3 = Work_name(work_name = "物")
-    w4 = Work_name(work_name = "法")
-
-    try :
-        session.add_all([s,s1,s2,s3,d1,d2,d3,d4,w1,w2,w3,w4])
-        session.commit()
-        return "ok",200
-    except Exception as e:
-        session.rollback()
-        print(e,"记录日志")
-        return "not ok",404
-
-
-
-
-
-
-
-
-@app.route("/mysql/excel",methods=['POST'])   # 要拼接一个库名，你不拼，没有办法发请求，对接口，传参方式。
-def excel_list():
-    '''
-    该方法，主要用来去查询文件列表，该用户名下的所有文件列表。
-    给客户展示用的，
-    同时还要做分组展示返回给前端。现在开发完善这个功能。分组返回数据。
-
-    :param
-    :return: 该用户库中所有excel的文件名
-    '''
-
-    data = request.form
-    user_id = data.get("id")
-    user_name = data.get("name")
-    user_role = data.get("role")
-    user_work_id = data.get("work_id")
-    database = str(user_id) + user_name + str(user_work_id) + user_role
-
-    print(database)
-
-
-    conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user,password,host,port,database)
-    engine = sqlalchemy.create_engine(conn_str,echo=True)
-
-
-
-    #所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
-
-
-    books = session.query(User_excel).all()
-
-    d = {str(book.created_date):book.filename for book in books}
-    print(d)
-    return json.dumps(d)
 
 @app.route("/db/<string:db_name>/excel/delete",methods=['POST'])
 def excel_delete(db_name):
     """
-    对接虚拟机的垃操作。数据库端做出的一些列反应。
+    对接虚拟机的垃圾操作。数据库端做出的一些列反应。包括假删除
     :param db_name:
     :return:
     """
@@ -155,15 +56,24 @@ def excel_delete(db_name):
     status_id = 4
 
 
+
     date_id = data.get("date_id")
     if date_id == "日":
         date_id = 1
     elif date_id =="周":
         date_id = 2
-    elif date_id == "月":
+    elif date_id == "旬":
         date_id =3
-    elif date_id == "年":
+    elif date_id == "月":
         date_id =4
+    elif date_id == "季":
+        date_id = 5
+    elif date_id == "半":
+        date_id = 6
+    elif date_id == "年":
+        date_id = 7
+
+
 
     work_id = data.get("work_id")
     if work_id == "人":
@@ -174,6 +84,9 @@ def excel_delete(db_name):
         work_id =3
     elif work_id == "法":
         work_id =4
+
+
+
     # file_type_id = data.get("file_type_id")  0.1暂时先不考虑。先放空
 
     #查询条件更加精准化，理论上，一定会有重名文件，因为是多级目录，所以一定要精准，这样就没问题了
@@ -196,6 +109,8 @@ def excel_delete(db_name):
                 print(e, "记录日志")
 
         return "ok",200
+
+
     else:
         if all([department,department_id]):
 
@@ -210,6 +125,8 @@ def excel_delete(db_name):
                        user_id=user_id,user_name = user_name,role=role,
                        role_id= role_id,
                        status_id=status_id,date_id=date_id,work_id=work_id)
+
+
         try:
             session.add(excel)
             session.commit()
@@ -224,15 +141,11 @@ def excel_delete(db_name):
 @app.route("/db/<string:db_name>/excel/add",methods=['POST'])
 def excel_add(db_name):
     """
-    目前还没有 完成这个功能，但是我的思路是绝对无敌的。先放下，现在开始开发虚拟机端。
-    这个的基础功能实现了，但是添加记录时候的所有，都应该是请求传进来的，不是固定的，所以，这个先放一放，不急。
-    考虑到，fdfs冗余问题，这里也要加个FDFS去客户端里面删除东西。
+    excel添加功能，向mysql中添加新的数据。
     :param db_name:
     :return:
     """
     data = request.json
-
-
     print(data)
     print(db_name)
 
@@ -257,6 +170,7 @@ def excel_add(db_name):
     department_id = data.get("department_id")
     department = data.get("department")
     status_id = data.get("status_id")
+
     if status_id == "草":
         status_id = 1
     elif status_id =="报":
@@ -265,6 +179,8 @@ def excel_add(db_name):
         status_id =3
     elif status_id == "垃":
         status_id =4
+    elif status_id == "收":
+        status_id = 5
 
 
     date_id = data.get("date_id")
@@ -272,10 +188,16 @@ def excel_add(db_name):
         date_id = 1
     elif date_id =="周":
         date_id = 2
-    elif date_id == "月":
+    elif date_id == "旬":
         date_id =3
-    elif date_id == "年":
+    elif date_id == "月":
         date_id =4
+    elif date_id == "季":
+        date_id =5
+    elif date_id == "半":
+        date_id =6
+    elif date_id == "年":
+        date_id =7
 
     work_id = data.get("work_id")
     if work_id == "人":
@@ -332,7 +254,7 @@ def excel_add_leader(db_name):
     """
     上报功能时候，替领导添加数据，但是有一点，不能更新，而是新建，
     因为上报上来的，删不删，得领导自己决定，
-    考虑到，fdfs冗余问题，这里也要加个FDFS去客户端里面删除东西。
+
     :param db_name:
     :return:
     """
@@ -358,7 +280,7 @@ def excel_add_leader(db_name):
     role_id = data.get("role_id")
     department_id = data.get("department_id")
     department = data.get("department")
-    status_id = 1  # 报上去的，在领导那里，体现的只能是草里面。
+    status_id = 5  # 报上去的，在领导那里，体现的只能是收里面。
 
 
     date_id = data.get("date_id")
@@ -366,10 +288,16 @@ def excel_add_leader(db_name):
         date_id = 1
     elif date_id =="周":
         date_id = 2
-    elif date_id == "月":
+    elif date_id == "旬":
         date_id =3
-    elif date_id == "年":
+    elif date_id == "月":
         date_id =4
+    elif date_id == "季":
+        date_id =5
+    elif date_id == "半":
+        date_id =6
+    elif date_id == "年":
+        date_id =7
 
     work_id = data.get("work_id")
     if work_id == "人":
@@ -416,7 +344,7 @@ def excel_add_leader(db_name):
 @app.route("/mysql/<string:db_name>/excel/find",methods=['POST'])
 def vm_latest_find(db_name):
     """
-    查找最后一次虚拟机状态
+    查找最后一次虚拟机状态，所有人逻辑都是固定的
     :param db_name:
     :return:
     """
@@ -454,7 +382,7 @@ def vm_latest_find(db_name):
 @app.route("/mysql/<string:db_name>/excel/find/submit",methods=['POST'])
 def vm_latest_find_submit(db_name):
     """
-    查找下级报送给上级的路径。
+    查找下级报送给上级的文件路径。为初始化工作区做准备。
     :param db_name:
     :return:
     """
@@ -474,7 +402,7 @@ def vm_latest_find_submit(db_name):
     # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
     Session = sessionmaker(bind=engine)
     session = Session()
-    """这里是固定的逻辑，就是查这张表中，最后一次记录里的地址返回来就行。"""
+
 
     files = session.query(User_excel).filter(User_excel.user_name != user_name).all()
 
@@ -487,8 +415,9 @@ def vm_latest_find_submit(db_name):
 @app.route("/db/<string:db_name>/vm_latest/add",methods=['POST'])
 def vm_latest_add(db_name):
     """
-    目前还没有 完成这个功能，但是我的思路是绝对无敌的。先放下，现在开始开发虚拟机端。
-    这个的基础功能实现了，但是添加记录时候的所有，都应该是请求传进来的，不是固定的，所以，这个先放一放，不急。
+
+    对接虚拟机的最后一次状态保存功能，请求到这里后，数据库端就会完成保存。
+    这里没有什么业务逻辑，也不考虑冗余 。存好就行。
     :param db_name:
     :return:
     """
@@ -550,8 +479,16 @@ def vm_latest_add(db_name):
 
 
 if __name__ == '__main__':
+    app.register_blueprint(mysql)
     print(app.url_map)
-    app.run()
+    try:
+        consul.agent.service.register(name='db', service_id='db', address='0.0.0.0', port=5000, tags=["db"],
+                                               interval='5s', httpcheck="http://191.0.0.1:9654/")
+    except Exception as e:
+        print("服务没有注册成功:{0}".format(e))
+
+    # todo 上线之前注册consul,但是这里还是要深挖一下。关于健康监测的接口知识
+    app.run("0.0.0.0",5000)
 
 
 

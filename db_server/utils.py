@@ -2,7 +2,7 @@ from fdfs_client.client import get_tracker_conf,Fdfs_client
 
 def delete_fdfs(path:bytes):
     """
-    #上传FDFS，api
+    #删除FDFS
     :param path:文件的绝对路径
     :return: 上传后FDFS返回的信息
     """
