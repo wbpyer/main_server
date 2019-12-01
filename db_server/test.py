@@ -3,7 +3,7 @@ import json
 from flask import Flask,request,jsonify
 
 from sqlalchemy.orm import sessionmaker,relationship
-from db_server.table import User_excel,Vm_last_status,Base
+from db_server.models import User_excel,Vm_last_status,Base
 from sqlalchemy_utils import database_exists,create_database
 
 

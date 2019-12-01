@@ -19,6 +19,7 @@ class User_excel(Base):
     id = Column(Integer, primary_key=True)
     filename = Column(String(64), nullable=False)
     path = Column(String(200), nullable=False, unique=True)
+    fgroup = Column(String(60),nullable=False)  # 用来放文件的分组，后加字段
     created_date = Column(DateTime, default=datetime.datetime.utcnow)
 
     deleted = Column(Integer, default=0, nullable=False)

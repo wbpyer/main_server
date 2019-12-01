@@ -4,7 +4,7 @@ from consulate import Consul
 from flask import Flask,request,jsonify
 from db_server.utils import delete_fdfs
 from sqlalchemy.orm import sessionmaker,relationship
-from db_server.table import User_excel,Vm_last_status
+from db_server.models import User_excel,Vm_last_status
 from db_server.show import mysql
 from flask_cors import CORS
 

@@ -3,7 +3,7 @@ import sqlalchemy
 import json
 from flask import Flask,request,jsonify
 from sqlalchemy.orm import sessionmaker,relationship
-from db_server.table import User_excel,Vm_last_status,Status,Date_name,Work_name,Base
+from db_server.models import User_excel,Vm_last_status,Status,Date_name,Work_name,Base
 from sqlalchemy_utils import database_exists,create_database
 from db_server.manager.model import Manage
 
@@ -164,8 +164,7 @@ def find_name():
 @mysql.route("/mysql/excel/",methods=['POST'])
 def excel_list():
     '''
-    该方法，主要用来去查询文件列表，该用户名下的所有文件列表。和前端有对接的接口。
-    给客户展示用的,近期数据。
+    分页展示功能已完成。
     #todo 接口2 ，展示用户所有文件列表 ,变成给部门领导的展示，
 
 
@@ -178,14 +177,19 @@ def excel_list():
     user_name = data.get("name")
     level_1 = data.get("level_1")
     level_2 = data.get("level_2")
+    try:
+        page = int(data.get("page",1))
+        page = page if page > 0 else 1
+    except:
+        page = 1
 
-    database = find_db(user_name)
+    try :
+        size = int(data.get("size",20))
+        size = size if size > 0 and size < 101 else 20
+    except:
+        size = 20
 
-    conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
-    engine = sqlalchemy.create_engine(conn_str, echo=True)
 
-    Session = sessionmaker(bind=engine)
-    session = Session()
 
     if level_3 == "草":
         level_3 = 1
@@ -228,25 +232,52 @@ def excel_list():
 
     # todo 前端要什么，就给他查什么。
     try:
+        database = find_db(user_name)
+
+        conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+        engine = sqlalchemy.create_engine(conn_str, echo=True)
+
+        Session = sessionmaker(bind=engine)
+        session = Session()
+
+        start = (page - 1) * size
+
+
         exceles = session.query(User_excel).filter(User_excel.work_id == level_1). \
         filter(User_excel.date_id == level_2).filter(User_excel.status_id == level_3) \
-        .order_by(User_excel.created_date.desc()).limit(20).all()
+        .order_by(User_excel.created_date.desc()).all()
+
+        count = len(exceles)  # 总条数
+
+        exceles = exceles[start:start + size]   # 记录不够也不会抛出错误。
+
+
+
+        json_list = []
+        for i in exceles:
+            json_dict = {}
+            json_dict["id"] = i.id
+            json_dict["filename"] = i.filename
+            json_dict["created_date"] = i.created_date
+            json_list.append(json_dict)
+
+
+        res = {'status': 200,
+               "total": len(exceles),"size":size,
+               "page":page,
+               "count":count,
+               "data": json_list}
+        return jsonify(res), 200
+
 
     except Exception as e:
-        return None,404
+        print(e,"记录日志")
+        return jsonify({'status': 404, "data": None}),404
 
 
-    json_list = []
-    for i in exceles:
-        json_dict = {}
-        json_dict["id"] = i.id
-        json_dict["filename"] = i.filename
-        json_dict["created_date"] = i.created_date
-        json_list.append(json_dict)
 
-    ret1 = json_list
-    d = {'status': 200, "total": len(exceles), "data": ret1}
-    return jsonify(d),200
+
+
 
 
 
@@ -258,26 +289,29 @@ def excel_show():
     #todo api4
     :return:
     """
-
-
-
     data = request.form
     filename = data.get("filename")
     id = data.get("id")
     user_name = data.get("name")
 
-    database = find_db(user_name)
+    try:
+        database = find_db(user_name)
+        conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+        engine = sqlalchemy.create_engine(conn_str, echo=True)
 
-    conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
-    engine = sqlalchemy.create_engine(conn_str, echo=True)
+        Session = sessionmaker(bind=engine)
+        session = Session()
 
-    Session = sessionmaker(bind=engine)
-    session = Session()
+        file = session.query(User_excel).filter(User_excel.filename == filename).filter(User_excel.id == id ).limit(1).one()
+        path = "http://"+ file.fgroup  +  file.path
+        res = {'status': 200, "data": path}
 
-    file = session.query(User_excel).filter(User_excel.filename == filename).filter(User_excel.id == id ).limit(1).one()
+        return jsonify(res), 200
+    #todo 这里需要拼接路径，前面是固定的ip地址,运维安排，。但是前面的组号，需要在文件入库的时候单独放入一个字段里面，然后在这里拿出来拼接。
 
-    #这里还没写完，再等等。
 
+    except Exception as e:
+        return jsonify({'status': 404, "data": None}),404
 
 
 
