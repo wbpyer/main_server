@@ -1,7 +1,6 @@
 from flask import Blueprint
 import sqlalchemy
-import json
-from flask import Flask,request,jsonify
+from flask import Flask,request,jsonify,current_app
 from sqlalchemy.orm import sessionmaker,relationship
 from db_server.models import User_excel,Vm_last_status,Status,Date_name,Work_name,Base
 from sqlalchemy_utils import database_exists,create_database
@@ -47,6 +46,8 @@ def insert_manage_table(database:str,depart,username):
 
     except Exception as e:
         session.rollback()
+        current_app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ", e, request.remote_addr,
+                                 request.user_agent.browser)
         print(e, "记录日志")
 
 
@@ -81,11 +82,11 @@ def create_db():
     try:
 
         data = request.form
-        user_id = data.get("id")
-        user_name = data.get("name")
-        user_role = data.get("role")  # 这里和以前的角色内容一样，只不过名字变成了岗位
-        user_job_id = data.get("job_id")
-        user_department_id = data.get("user_department_id")
+        user_id = data.get("user_id")
+        user_name = data.get("username")
+        user_role = data.get("work")  # 这里和以前的角色内容一样，只不过名字变成了岗位
+        user_job_id = data.get("numVal")
+        user_department_id = data.get("department_id")
         database = str(user_id) + ":" +user_name +":" + str(user_job_id) +":" + user_role
 
         conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
@@ -127,13 +128,17 @@ def create_db():
         try :
             session.add_all([s,s1,s2,s3,s4,d1,d2,d3,d4,d5,d6,d7,w1,w2,w3,w4])
             session.commit()
-            return "ok",200
+            res = {'status': 200, "data": "ok"}
+            return jsonify(res),200
         except Exception as e:
             session.rollback()
             print(e,"记录日志")
-            return "not ok",404
+            res = {'status': 404, "data": "not ok"}
+            return res,404
 
     except Exception as e:
+        current_app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ", e, request.remote_addr,
+                                 request.user_agent.browser)
         print(e)
 
 
@@ -168,6 +173,8 @@ def find_name():
         return jsonify(d),200
 
     except Exception as e:
+        current_app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ", e, request.remote_addr,
+                                 request.user_agent.browser)
         print(e)
 
 
@@ -285,6 +292,8 @@ def excel_list():
 
     except Exception as e:
         print(e,"记录日志")
+        current_app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ", e, request.remote_addr,
+                                 request.user_agent.browser)
         return jsonify({'status': 404, "data": None}),404
 
 
@@ -324,9 +333,9 @@ def excel_show():
 
     except Exception as e:
         print(e)
+        current_app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ",e,request.remote_addr,request.user_agent.browser)
+
         return jsonify({'status': 404, "data": None}),404
-
-
 
 
 

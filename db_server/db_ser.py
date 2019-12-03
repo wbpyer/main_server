@@ -1,5 +1,5 @@
 import sqlalchemy
-# import json
+import logging
 from consulate import Consul
 from flask import Flask,request,jsonify
 from db_server.utils import delete_fdfs
@@ -144,7 +144,9 @@ def excel_delete(db_name):
                 return "not ok",404
 
     except Exception as e:
-        print("记录日志",e)
+        app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ",e,request.remote_addr,request.user_agent.browser)
+
+
 
 
 @app.route("/db/<string:db_name>/excel/add",methods=['POST'])
@@ -261,6 +263,7 @@ def excel_add(db_name):
                 return "not ok",404
 
     except Exception as e:
+        app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ",e,request.remote_addr,request.user_agent.browser)
         print("记录日志",e)
 
 
@@ -357,6 +360,8 @@ def excel_add_leader(db_name):
 
     except Exception as e:
         print(e)
+        app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ",e,request.remote_addr,request.user_agent.browser)
+
 
 
 
@@ -403,6 +408,8 @@ def vm_latest_find(db_name):
 
     except Exception as e:
         print(e)
+        app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ",e,request.remote_addr,request.user_agent.browser)
+
 
 
 
@@ -442,6 +449,8 @@ def vm_latest_find_submit(db_name):
 
     except Exception as e:
         print(e)
+        app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ",e,request.remote_addr,request.user_agent.browser)
+
 
 
 
@@ -512,6 +521,8 @@ def vm_latest_add(db_name):
 
     except Exception as e:
         print(e)
+        app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ",e,request.remote_addr,request.user_agent.browser)
+
 
 
 
@@ -605,6 +616,8 @@ def move():
 
     except Exception as e:
         print(e)
+        app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ",e,request.remote_addr,request.user_agent.browser)
+
         return "delete error",404
 
 
@@ -624,6 +637,12 @@ if __name__ == '__main__':
     except Exception as e:
         print("服务没有注册成功:{0}".format(e))
     #上面是注册服务发现，向consul注册服务。
+
+    handler = logging.FileHandler('E:\\logs\\db_server.log', encoding='UTF-8')
+    handler.setLevel(logging.DEBUG)
+    logging_format = logging.Formatter("%(asctime)s app:flask fun:%(funcName)s %(levelname)s %(message)s")
+    handler.setFormatter(logging_format)
+    app.logger.addHandler(handler)
 
     app.run("0.0.0.0",5000)
 
