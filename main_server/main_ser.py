@@ -67,7 +67,7 @@ def vm():
 
 
 
-@app.route('/service/<string:name>',methods = ['GET'])
+@app.route('/service/<string:name>',methods = ['GET','POST'])
 def find_service(name):
     """
     name:所请求子服务的名字
@@ -78,13 +78,16 @@ def find_service(name):
     最终由前端解决，这里只返回你要访问的服务的ip,端口就行。
     """
     try:
+        data = request.form
+        print(data)
+
         print(name)
         service = __getService(name=name,host='192.168.29.129',port='8500',token=None)
         app.logger.info("remote_ip:{},user_agent:{}".format(request.remote_addr,request.user_agent.browser))
 
-        # print('http://' + str(service[0]) + ':' + str(service[1])+'/index')
-        d = {'ip':service[0],"port":service[0]}
-        res  = {'status': 200, "data":d }
+
+        res  = {'status': 200, "data":service }
+        print(res)
         return  jsonify(res),200
 
     except Exception as e:
@@ -102,7 +105,11 @@ if __name__ == '__main__':
     logging_format = logging.Formatter("%(asctime)s app:flask fun:%(funcName)s %(levelname)s %(message)s")
     handler.setFormatter(logging_format)
     app.logger.addHandler(handler)
-    app.run()
+    app.run('0.0.0.0',5002)
+
+
+
+
 
 
 

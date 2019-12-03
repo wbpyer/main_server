@@ -1,6 +1,5 @@
 import json
 import requests
-from consulate import Consul
 from random import randint
 
 
@@ -29,7 +28,7 @@ def __getService(name,host,port,token):  # 负债均衡获取服务实例
 
         for serv in serviceListData:
             status = serv.get('Checks')[1].get('Status')
-            if status == 'critical':  # 选取成功的节点,也可以查看失败的节点，这里由我自己去定义。
+            if status == 'passing':  # 选取成功的节点,也可以查看失败的节点，这里由我自己去定义。
                 address = serv.get('Service').get('Address')
                 port = serv.get('Service').get('Port')
                 serviceList.append({'port': port, 'address': address})
@@ -39,3 +38,5 @@ def __getService(name,host,port,token):  # 负债均衡获取服务实例
         service = serviceList[randint(0, len(serviceList) - 1)]  # 随机获取一个可用的服务实例\
         print(service)
         return service
+
+

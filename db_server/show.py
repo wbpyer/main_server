@@ -8,16 +8,17 @@ from sqlalchemy_utils import database_exists,create_database
 from db_server.manager.model import Manage
 
 mysql = Blueprint('mysql',__name__)
-
-
-
 host = '192.168.29.129'
 user = 'root'
 password = ''
 port = 3306
 
 
+"""
 
+此页面内容和前端交互
+
+"""
 
 
 def insert_manage_table(database:str,depart,username):
@@ -77,58 +78,63 @@ def create_db():
     :return:
     """
 
-    data = request.form
-    user_id = data.get("id")
-    user_name = data.get("name")
-    user_role = data.get("role")  # 这里和以前的角色内容一样，只不过名字变成了岗位
-    user_job_id = data.get("job_id")
-    user_department_id = data.get("user_department_id")
-    database = str(user_id) + ":" +user_name +":" + str(user_job_id) +":" + user_role
+    try:
 
-    conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
-    engine = sqlalchemy.create_engine(conn_str, echo=True)
+        data = request.form
+        user_id = data.get("id")
+        user_name = data.get("name")
+        user_role = data.get("role")  # 这里和以前的角色内容一样，只不过名字变成了岗位
+        user_job_id = data.get("job_id")
+        user_department_id = data.get("user_department_id")
+        database = str(user_id) + ":" +user_name +":" + str(user_job_id) +":" + user_role
 
-    if database_exists(engine.url):
-        print(engine.url)
+        conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+        engine = sqlalchemy.create_engine(conn_str, echo=True)
 
-        # Base.metadata.drop_all(engine)
-        return "数据库已经存在，"
+        if database_exists(engine.url):
+            print(engine.url)
 
-    else:
-        create_database(engine.url)
-        Base.metadata.create_all(engine)
-        insert_manage_table(database,user_department_id,user_name)
+            # Base.metadata.drop_all(engine)
+            return "数据库已经存在，"
 
-    Session = sessionmaker(bind=engine)
-    session = Session()
+        else:
+            create_database(engine.url)
+            Base.metadata.create_all(engine)
+            insert_manage_table(database,user_department_id,user_name)
 
-    s = Status(status_name ="草")
-    s1 = Status(status_name="报")
-    s2 = Status(status_name="副")
-    s3 = Status(status_name="垃")
-    s4 = Status(status_name = "收")
+        Session = sessionmaker(bind=engine)
+        session = Session()
 
-    d1 = Date_name(date_name = "日")
-    d2 = Date_name(date_name = "周")
-    d3 = Date_name(date_name = "旬")
-    d4 =Date_name(date_name = "月")
-    d5 =Date_name(date_name = "季")
-    d6 = Date_name(date_name = "半")
-    d7 = Date_name(date_name = "年")
+        s = Status(status_name ="草")
+        s1 = Status(status_name="报")
+        s2 = Status(status_name="副")
+        s3 = Status(status_name="垃")
+        s4 = Status(status_name = "收")
 
-    w1 = Work_name(work_name = "人")
-    w2 = Work_name(work_name = "机")
-    w3 = Work_name(work_name = "物")
-    w4 = Work_name(work_name = "法")
+        d1 = Date_name(date_name = "日")
+        d2 = Date_name(date_name = "周")
+        d3 = Date_name(date_name = "旬")
+        d4 =Date_name(date_name = "月")
+        d5 =Date_name(date_name = "季")
+        d6 = Date_name(date_name = "半")
+        d7 = Date_name(date_name = "年")
 
-    try :
-        session.add_all([s,s1,s2,s3,s4,d1,d2,d3,d4,d5,d6,d7,w1,w2,w3,w4])
-        session.commit()
-        return "ok",200
+        w1 = Work_name(work_name = "人")
+        w2 = Work_name(work_name = "机")
+        w3 = Work_name(work_name = "物")
+        w4 = Work_name(work_name = "法")
+
+        try :
+            session.add_all([s,s1,s2,s3,s4,d1,d2,d3,d4,d5,d6,d7,w1,w2,w3,w4])
+            session.commit()
+            return "ok",200
+        except Exception as e:
+            session.rollback()
+            print(e,"记录日志")
+            return "not ok",404
+
     except Exception as e:
-        session.rollback()
-        print(e,"记录日志")
-        return "not ok",404
+        print(e)
 
 
 
@@ -139,29 +145,36 @@ def find_name():
     # todo 3 暂未启用。以后再说。
     :return:
     """
-    data = request.form
-    user_department_id = data.get("id")
 
-    madatabase = "manage_table"
-    conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, madatabase)
-    engine = sqlalchemy.create_engine(conn_str, echo=True)
-
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
-    peoples = session.query(Manage).filter(Manage.id == user_department_id).all()
     try:
 
-        d = {i:peo.name for i,peo in  enumerate(peoples)}
+        data = request.form
+        user_department_id = data.get("id")
+
+        madatabase = "manage_table"
+        conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, madatabase)
+        engine = sqlalchemy.create_engine(conn_str, echo=True)
+
+        Session = sessionmaker(bind=engine)
+        session = Session()
+
+        peoples = session.query(Manage).filter(Manage.id == user_department_id).all()
+        try:
+
+            d = {i:peo.name for i,peo in  enumerate(peoples)}
+        except Exception as e:
+            return jsonify(None),404
+
+        return jsonify(d),200
+
     except Exception as e:
-        return jsonify(None),404
-
-    return jsonify(d),200
+        print(e)
 
 
 
 
-@mysql.route("/mysql/excel/",methods=['POST'])
+
+@mysql.route("/mysql/excel",methods=['POST'])
 def excel_list():
     '''
     分页展示功能已完成。
@@ -278,23 +291,22 @@ def excel_list():
 
 
 
-
-
-
 @mysql.route("/mysql/excel/show",methods=['POST'])
 def excel_show():
     """
     用来展示具体的文件接口
-    这里我有思路了，挂上NGINX 然后直接去打开地址，就等于是阅览。
+    这里我有思路了，挂上NGINX 然后直接去打开地址，就等于是阅览。需要微软的控件访问
+
     #todo api4
     :return:
     """
-    data = request.form
-    filename = data.get("filename")
-    id = data.get("id")
-    user_name = data.get("name")
-
     try:
+        data = request.form
+        filename = data.get("filename")
+        id = data.get("id")
+        user_name = data.get("name")
+
+
         database = find_db(user_name)
         conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
         engine = sqlalchemy.create_engine(conn_str, echo=True)
@@ -303,7 +315,7 @@ def excel_show():
         session = Session()
 
         file = session.query(User_excel).filter(User_excel.filename == filename).filter(User_excel.id == id ).limit(1).one()
-        path = "http://"+ file.fgroup  +  file.path
+        path = "http://" +  file.fgroup + "/" +   file.path
         res = {'status': 200, "data": path}
 
         return jsonify(res), 200
@@ -311,7 +323,9 @@ def excel_show():
 
 
     except Exception as e:
+        print(e)
         return jsonify({'status': 404, "data": None}),404
+
 
 
 

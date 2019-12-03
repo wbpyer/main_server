@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker,relationship
 from db_server.models import User_excel,Vm_last_status
 from db_server.show import mysql
 from flask_cors import CORS
-
+from db_server.health_check import health
 
 app = Flask(__name__)
 CORS(app)
@@ -19,6 +19,11 @@ password = ''
 port = 3306
 consul = Consul(host='192.168.29.129', port=8500)   # 服务发现集群consul连接器。
 
+"""
+
+此页面内容只和虚拟机通信。
+
+"""
 
 @app.route("/db/<string:db_name>/excel/delete",methods=['POST'])
 def excel_delete(db_name):
@@ -27,115 +32,119 @@ def excel_delete(db_name):
     :param db_name:
     :return:
     """
-    data = request.json
+    try:
+        data = request.json
 
 
-    print(data)
-    print(db_name)
+        print(data)
+        print(db_name)
 
 
-    database = db_name
-    conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
-    engine = sqlalchemy.create_engine(conn_str, echo=True)
+        database = db_name
+        conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+        engine = sqlalchemy.create_engine(conn_str, echo=True)
 
-    # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    #下面的参数都是传参数，也就是放在requests里传进来的，filename,path,status,date,work,由虚拟机传过来，user,role,depart登陆之后，这个用户的信息，要有一个token，一直跟到虚拟机，
-    #再由虚拟机跟过来。否则，这个是完全解耦合的，你查不到权限库。
-
-
-    filename = data.get("file_name")
-    filepath = data.get("path")
-    user_id = data.get("user_id")
-    user_name =data.get("user_name")
-    role = data.get("role")
-    role_id = data.get("role_id")
-    department_id = data.get("department_id")
-    department = data.get("department")
-    status_id = 4
+        # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        #下面的参数都是传参数，也就是放在requests里传进来的，filename,path,status,date,work,由虚拟机传过来，user,role,depart登陆之后，这个用户的信息，要有一个token，一直跟到虚拟机，
+        #再由虚拟机跟过来。否则，这个是完全解耦合的，你查不到权限库。
 
 
-
-    date_id = data.get("date_id")
-    if date_id == "日":
-        date_id = 1
-    elif date_id =="周":
-        date_id = 2
-    elif date_id == "旬":
-        date_id =3
-    elif date_id == "月":
-        date_id =4
-    elif date_id == "季":
-        date_id = 5
-    elif date_id == "半":
-        date_id = 6
-    elif date_id == "年":
-        date_id = 7
+        filename = data.get("file_name")
+        filepath = data.get("path")
+        file_ip = data.get('file_ip')
+        user_id = data.get("user_id")
+        user_name =data.get("user_name")
+        role = data.get("role")
+        role_id = data.get("role_id")
+        department_id = data.get("department_id")
+        department = data.get("department")
+        status_id = 4
 
 
 
-    work_id = data.get("work_id")
-    if work_id == "人":
-        work_id = 1
-    elif work_id =="机":
-        work_id = 2
-    elif work_id == "物":
-        work_id =3
-    elif work_id == "法":
-        work_id =4
+        date_id = data.get("date_id")
+        if date_id == "日":
+            date_id = 1
+        elif date_id =="周":
+            date_id = 2
+        elif date_id == "旬":
+            date_id =3
+        elif date_id == "月":
+            date_id =4
+        elif date_id == "季":
+            date_id = 5
+        elif date_id == "半":
+            date_id = 6
+        elif date_id == "年":
+            date_id = 7
 
 
 
-    # file_type_id = data.get("file_type_id")  0.1暂时先不考虑。先放空
+        work_id = data.get("work_id")
+        if work_id == "人":
+            work_id = 1
+        elif work_id =="机":
+            work_id = 2
+        elif work_id == "物":
+            work_id =3
+        elif work_id == "法":
+            work_id =4
 
-    #查询条件更加精准化，理论上，一定会有重名文件，因为是多级目录，所以一定要精准，这样就没问题了
-    name = session.query(User_excel).filter(User_excel.filename == filename).filter(User_excel.work_id == work_id).filter(User_excel.date_id ==
-        date_id).all()
 
-    if name:
-        for i in name:
-            print(i.path)
-            delete_fdfs(i.path)
-            i.path = filepath
-            i.status_id = 4
-            i.deleted = 1
+
+        # file_type_id = data.get("file_type_id")  0.1暂时先不考虑。先放空
+
+        #查询条件更加精准化，理论上，一定会有重名文件，因为是多级目录，所以一定要精准，这样就没问题了
+        name = session.query(User_excel).filter(User_excel.filename == filename).filter(User_excel.work_id == work_id).filter(User_excel.date_id ==
+            date_id).all()
+
+        if name:
+            for i in name:
+                print(i.path)
+                delete_fdfs(i.path)
+                i.path = filepath
+                i.status_id = 4
+                i.deleted = 1
+
+                try:
+                    session.add(i)
+                    session.commit()
+                except Exception as e:
+                    session.rollback()
+                    print(e, "记录日志")
+
+            return "ok",200
+
+
+        else:
+            if all([department,department_id]):
+
+                excel = User_excel(filename=filename,path=filepath,deleted = 1,
+                           user_id=user_id,user_name = user_name,role=role,
+                           role_id= role_id,fgroup=file_ip,
+                           department_id=department_id,
+                            department = department,
+                           status_id=status_id,date_id=date_id,work_id=work_id)
+            else:
+                excel = User_excel(filename=filename,path=filepath,deleted = 1,
+                           user_id=user_id,user_name = user_name,role=role,
+                           role_id= role_id,fgroup = file_ip,
+                           status_id=status_id,date_id=date_id,work_id=work_id)
+
 
             try:
-                session.add(i)
+                session.add(excel)
                 session.commit()
+                return "ok",200
             except Exception as e:
                 session.rollback()
-                print(e, "记录日志")
+                print(e,"记录日志")
+                return "not ok",404
 
-        return "ok",200
-
-
-    else:
-        if all([department,department_id]):
-
-            excel = User_excel(filename=filename,path=filepath,deleted = 1,
-                       user_id=user_id,user_name = user_name,role=role,
-                       role_id= role_id,
-                       department_id=department_id,
-                        department = department,
-                       status_id=status_id,date_id=date_id,work_id=work_id)
-        else:
-            excel = User_excel(filename=filename,path=filepath,deleted = 1,
-                       user_id=user_id,user_name = user_name,role=role,
-                       role_id= role_id,
-                       status_id=status_id,date_id=date_id,work_id=work_id)
-
-
-        try:
-            session.add(excel)
-            session.commit()
-            return "ok",200
-        except Exception as e:
-            session.rollback()
-            print(e,"记录日志")
-            return "not ok",404
-
+    except Exception as e:
+        print("记录日志",e)
 
 
 @app.route("/db/<string:db_name>/excel/add",methods=['POST'])
@@ -145,108 +154,114 @@ def excel_add(db_name):
     :param db_name:
     :return:
     """
-    data = request.json
-    print(data)
-    print(db_name)
+    try:
+
+        data = request.json
+        print(data)
+        print(db_name)
 
 
-    database = db_name
-    conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
-    engine = sqlalchemy.create_engine(conn_str, echo=True)
+        database = db_name
+        conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+        engine = sqlalchemy.create_engine(conn_str, echo=True)
 
-    # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    #下面的参数都是传参数，也就是放在requests里传进来的，filename,path,status,date,work,由虚拟机传过来，user,role,depart登陆之后，这个用户的信息，要有一个token，一直跟到虚拟机，
-    #再由虚拟机跟过来。否则，这个是完全解耦合的，你查不到权限库。
-
-
-    filename = data.get("file_name")
-    filepath = data.get("path")
-    user_id = data.get("user_id")
-    user_name =data.get("user_name")
-    role = data.get("role")
-    role_id = data.get("role_id")
-    department_id = data.get("department_id")
-    department = data.get("department")
-    status_id = data.get("status_id")
-
-    if status_id == "草":
-        status_id = 1
-    elif status_id =="报":
-        status_id = 2
-    elif status_id == "副":
-        status_id =3
-    elif status_id == "垃":
-        status_id =4
-    elif status_id == "收":
-        status_id = 5
+        # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        #下面的参数都是传参数，也就是放在requests里传进来的，filename,path,status,date,work,由虚拟机传过来，user,role,depart登陆之后，这个用户的信息，要有一个token，一直跟到虚拟机，
+        #再由虚拟机跟过来。否则，这个是完全解耦合的，你查不到权限库。
 
 
-    date_id = data.get("date_id")
-    if date_id == "日":
-        date_id = 1
-    elif date_id =="周":
-        date_id = 2
-    elif date_id == "旬":
-        date_id =3
-    elif date_id == "月":
-        date_id =4
-    elif date_id == "季":
-        date_id =5
-    elif date_id == "半":
-        date_id =6
-    elif date_id == "年":
-        date_id =7
+        filename = data.get("file_name")
+        filepath = data.get("path")
+        file_ip = data.get('file_ip')
+        user_id = data.get("user_id")
+        user_name =data.get("user_name")
+        role = data.get("role")
+        role_id = data.get("role_id")
+        department_id = data.get("department_id")
+        department = data.get("department")
+        status_id = data.get("status_id")
 
-    work_id = data.get("work_id")
-    if work_id == "人":
-        work_id = 1
-    elif work_id =="机":
-        work_id = 2
-    elif work_id == "物":
-        work_id =3
-    elif work_id == "法":
-        work_id =4
-    # file_type_id = data.get("file_type_id")  0.1暂时先不考虑。先放空
+        if status_id == "草":
+            status_id = 1
+        elif status_id =="报":
+            status_id = 2
+        elif status_id == "副":
+            status_id =3
+        elif status_id == "垃":
+            status_id =4
+        elif status_id == "收":
+            status_id = 5
 
 
-    file = session.query(User_excel).filter(User_excel.filename == filename).filter(User_excel.status_id == status_id).filter(User_excel.date_id == date_id)\
-        .filter(User_excel.work_id == work_id).all()
+        date_id = data.get("date_id")
+        if date_id == "日":
+            date_id = 1
+        elif date_id =="周":
+            date_id = 2
+        elif date_id == "旬":
+            date_id =3
+        elif date_id == "月":
+            date_id =4
+        elif date_id == "季":
+            date_id =5
+        elif date_id == "半":
+            date_id =6
+        elif date_id == "年":
+            date_id =7
 
-    if file:
-        for i in file:
-            print(i.path)
-            delete_fdfs(i.path)
-            i.path = filepath
+        work_id = data.get("work_id")
+        if work_id == "人":
+            work_id = 1
+        elif work_id =="机":
+            work_id = 2
+        elif work_id == "物":
+            work_id =3
+        elif work_id == "法":
+            work_id =4
+        # file_type_id = data.get("file_type_id")  0.1暂时先不考虑。先放空
+
+
+        file = session.query(User_excel).filter(User_excel.filename == filename).filter(User_excel.status_id == status_id).filter(User_excel.date_id == date_id)\
+            .filter(User_excel.work_id == work_id).all()
+
+        if file:
+            for i in file:
+                print(i.path)
+                delete_fdfs(i.path)
+                i.path = filepath
+                try:
+                    session.add(i)
+                    session.commit()
+                except Exception as e:
+                    session.rollback()
+                    print(e, "记录日志")
+        else:
+            if all([department,department_id]):
+
+                excel = User_excel(filename=filename,path=filepath,deleted = 0,
+                           user_id=user_id,user_name = user_name,role=role,
+                           role_id= role_id,fgroup=file_ip,
+                           department_id=department_id,
+                            department = department,
+                           status_id=status_id,date_id=date_id,work_id=work_id)
+            else:
+                excel = User_excel(filename=filename,path=filepath,deleted = 0,
+                           user_id=user_id,user_name = user_name,role=role,
+                           role_id= role_id,fgroup=file_ip,
+                           status_id=status_id,date_id=date_id,work_id=work_id)
             try:
-                session.add(i)
+                session.add(excel)
                 session.commit()
+                return "ok",200
             except Exception as e:
                 session.rollback()
-                print(e, "记录日志")
-    else:
-        if all([department,department_id]):
+                print(e,"记录日志")
+                return "not ok",404
 
-            excel = User_excel(filename=filename,path=filepath,deleted = 0,
-                       user_id=user_id,user_name = user_name,role=role,
-                       role_id= role_id,
-                       department_id=department_id,
-                        department = department,
-                       status_id=status_id,date_id=date_id,work_id=work_id)
-        else:
-            excel = User_excel(filename=filename,path=filepath,deleted = 0,
-                       user_id=user_id,user_name = user_name,role=role,
-                       role_id= role_id,
-                       status_id=status_id,date_id=date_id,work_id=work_id)
-        try:
-            session.add(excel)
-            session.commit()
-            return "ok",200
-        except Exception as e:
-            session.rollback()
-            print(e,"记录日志")
-            return "not ok",404
+    except Exception as e:
+        print("记录日志",e)
 
 
 @app.route("/db/<string:db_name>/excel/add/leader",methods=['POST'])
@@ -258,84 +273,90 @@ def excel_add_leader(db_name):
     :param db_name:
     :return:
     """
-    data = request.json
-    print(data)
-    print(db_name)
-    database = db_name
-    conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
-    engine = sqlalchemy.create_engine(conn_str, echo=True)
-
-    # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    #下面的参数都是传参数，也就是放在requests里传进来的，filename,path,status,date,work,由虚拟机传过来，user,role,depart登陆之后，这个用户的信息，要有一个token，一直跟到虚拟机，
-    #再由虚拟机跟过来。否则，这个是完全解耦合的，你查不到权限库。
-
-
-    filename = data.get("file_name")
-    filepath = data.get("path")
-    user_id = data.get("user_id")
-    user_name =data.get("user_name")   #这里能体现出是谁报送上来的。
-    role = data.get("role")
-    role_id = data.get("role_id")
-    department_id = data.get("department_id")
-    department = data.get("department")
-    status_id = 5  # 报上去的，在领导那里，体现的只能是收里面。
-
-
-    date_id = data.get("date_id")
-    if date_id == "日":
-        date_id = 1
-    elif date_id =="周":
-        date_id = 2
-    elif date_id == "旬":
-        date_id =3
-    elif date_id == "月":
-        date_id =4
-    elif date_id == "季":
-        date_id =5
-    elif date_id == "半":
-        date_id =6
-    elif date_id == "年":
-        date_id =7
-
-    work_id = data.get("work_id")
-    if work_id == "人":
-        work_id = 1
-    elif work_id =="机":
-        work_id = 2
-    elif work_id == "物":
-        work_id =3
-    elif work_id == "法":
-        work_id =4
-
-    # file_type_id = data.get("file_type_id")  0.1暂时先不考虑。先放空
-
-
-
-    if all([department,department_id]):
-
-        excel = User_excel(filename=filename,path=filepath,deleted = 0,
-                       user_id=user_id,user_name = user_name,role=role,
-                       role_id= role_id,
-                       department_id=department_id,
-                        department = department,
-                       status_id=status_id,date_id=date_id,work_id=work_id)
-
-
-    else:
-        excel = User_excel(filename=filename,path=filepath,deleted = 0,
-                       user_id=user_id,user_name = user_name,role=role,
-                       role_id= role_id,
-                       status_id=status_id,date_id=date_id,work_id=work_id)
     try:
-        session.add(excel)
-        session.commit()
-        return "ok",200
+
+        data = request.json
+        print(data)
+        print(db_name)
+        database = db_name
+        conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+        engine = sqlalchemy.create_engine(conn_str, echo=True)
+
+        # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        #下面的参数都是传参数，也就是放在requests里传进来的，filename,path,status,date,work,由虚拟机传过来，user,role,depart登陆之后，这个用户的信息，要有一个token，一直跟到虚拟机，
+        #再由虚拟机跟过来。否则，这个是完全解耦合的，你查不到权限库。
+
+
+        filename = data.get("file_name")
+        filepath = data.get("path")
+        file_ip = data.get('file_ip')
+        user_id = data.get("user_id")
+        user_name =data.get("user_name")   #这里能体现出是谁报送上来的。
+        role = data.get("role")
+        role_id = data.get("role_id")
+        department_id = data.get("department_id")
+        department = data.get("department")
+        status_id = 5  # 报上去的，在领导那里，体现的只能是收里面。
+
+
+        date_id = data.get("date_id")
+        if date_id == "日":
+            date_id = 1
+        elif date_id =="周":
+            date_id = 2
+        elif date_id == "旬":
+            date_id =3
+        elif date_id == "月":
+            date_id =4
+        elif date_id == "季":
+            date_id =5
+        elif date_id == "半":
+            date_id =6
+        elif date_id == "年":
+            date_id =7
+
+        work_id = data.get("work_id")
+        if work_id == "人":
+            work_id = 1
+        elif work_id =="机":
+            work_id = 2
+        elif work_id == "物":
+            work_id =3
+        elif work_id == "法":
+            work_id =4
+
+        # file_type_id = data.get("file_type_id")  0.1暂时先不考虑。先放空
+
+
+
+        if all([department,department_id]):
+
+            excel = User_excel(filename=filename,path=filepath,deleted = 0,
+                           user_id=user_id,user_name = user_name,role=role,
+                           role_id= role_id,fgroup = file_ip,
+                           department_id=department_id,
+                            department = department,
+                           status_id=status_id,date_id=date_id,work_id=work_id)
+
+
+        else:
+            excel = User_excel(filename=filename,path=filepath,deleted = 0,
+                           user_id=user_id,user_name = user_name,role=role,
+                           role_id= role_id,fgroup = file_ip,
+                           status_id=status_id,date_id=date_id,work_id=work_id)
+        try:
+            session.add(excel)
+            session.commit()
+            return "ok",200
+        except Exception as e:
+            session.rollback()
+            print(e,"记录日志")
+            return "not ok",404
+
     except Exception as e:
-        session.rollback()
-        print(e,"记录日志")
-        return "not ok",404
+        print(e)
 
 
 
@@ -355,27 +376,34 @@ def vm_latest_find(db_name):
     # user_id = data.get('user_id')
     # job_id = data.get("job_id")
     # db_name = str(user_id) + user_name + str(job_id) + role
-    print(db_name)
 
-    database = db_name
-    conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
-    engine = sqlalchemy.create_engine(conn_str, echo=True)
+    try:
 
-    # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    """这里是固定的逻辑，就是查这张表中，最后一次记录里的地址返回来就行。"""
+        print(db_name)
 
-    if session.query(Vm_last_status).all():
-        v = session.query(Vm_last_status).order_by(Vm_last_status.id.desc()).limit(1).one()
+        database = db_name
+        conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+        engine = sqlalchemy.create_engine(conn_str, echo=True)
 
-        print(v.id)
+        # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        """这里是固定的逻辑，就是查这张表中，最后一次记录里的地址返回来就行。"""
 
-        filepath = v.path
-        print(filepath)
-        return jsonify(filepath)
-    else:
-        return jsonify(None)
+        if session.query(Vm_last_status).all():
+            v = session.query(Vm_last_status).order_by(Vm_last_status.id.desc()).limit(1).one()
+
+            print(v.id)
+
+            filepath = v.path
+            print(filepath)
+            return jsonify(filepath)
+        else:
+            return jsonify(None)
+
+    except Exception as e:
+        print(e)
+
 
 
 
@@ -386,29 +414,34 @@ def vm_latest_find_submit(db_name):
     :param db_name:
     :return:
     """
-    data = request.json
+    try:
 
-    # role = data.get("role")
-    user_name = data.get('user_name')
-    user_id = data.get('user_id')
-    # job_id = data.get("job_id")
-    # db_name = str(user_id) + user_name + str(job_id) + role
-    print(db_name)
+        data = request.json
 
-    database = db_name
-    conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
-    engine = sqlalchemy.create_engine(conn_str, echo=True)
+        # role = data.get("role")
+        user_name = data.get('user_name')
+        user_id = data.get('user_id')
+        # job_id = data.get("job_id")
+        # db_name = str(user_id) + user_name + str(job_id) + role
+        print(db_name)
 
-    # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
-    Session = sessionmaker(bind=engine)
-    session = Session()
+        database = db_name
+        conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+        engine = sqlalchemy.create_engine(conn_str, echo=True)
+
+        # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
+        Session = sessionmaker(bind=engine)
+        session = Session()
 
 
-    files = session.query(User_excel).filter(User_excel.user_name != user_name).all()
+        files = session.query(User_excel).filter(User_excel.user_name != user_name).all()
 
-    d = [(file.filename,file.path,file.work_id,file.date_id)  for file in files ]
+        d = [(file.filename,file.path,file.work_id,file.date_id)  for file in files ]
 
-    return jsonify(d)
+        return jsonify(d)
+
+    except Exception as e:
+        print(e)
 
 
 
@@ -421,73 +454,177 @@ def vm_latest_add(db_name):
     :param db_name:
     :return:
     """
-    data = request.json
+    try:
+
+        data = request.json
 
 
-    print(data)
-    print(db_name)
+        print(data)
+        print(db_name)
 
 
-    database = db_name
-    conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
-    engine = sqlalchemy.create_engine(conn_str, echo=True)
+        database = db_name
+        conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+        engine = sqlalchemy.create_engine(conn_str, echo=True)
 
-    # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    #下面的参数都是传参数，也就是放在requests里传进来的，filename,path,status,date,work,由虚拟机传过来，user,role,depart登陆之后，这个用户的信息，要有一个token，一直跟到虚拟机，
-    #再由虚拟机跟过来。否则，这个是完全解耦合的，你查不到权限库。
-
-
-    filename = data.get("file_name")
-    filepath = data.get("path")
-    user_id = data.get("user_id")
-    user_name =data.get("user_name")
-    role = data.get("role")
-    role_id = data.get("role_id")
-    department_id = data.get("department_id")
-    department = data.get("department")
+        # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        #下面的参数都是传参数，也就是放在requests里传进来的，filename,path,status,date,work,由虚拟机传过来，user,role,depart登陆之后，这个用户的信息，要有一个token，一直跟到虚拟机，
+        #再由虚拟机跟过来。否则，这个是完全解耦合的，你查不到权限库。
 
 
-    if all([department,department_id]):
-
-        vml = Vm_last_status(filename=filename,path=filepath,deleted = 0,
-                       user_id=user_id,user_name = user_name,role=role,
-                       role_id= role_id,
-                       department_id=department_id,
-                        department = department,
-                       )
-    else:
-        vml = Vm_last_status(filename=filename,path=filepath,deleted = 0,
-                       user_id=user_id,user_name = user_name,role=role,
-                       role_id= role_id,
-                       )
+        filename = data.get("file_name")
+        filepath = data.get("path")
+        user_id = data.get("user_id")
+        user_name =data.get("user_name")
+        role = data.get("role")
+        role_id = data.get("role_id")
+        department_id = data.get("department_id")
+        department = data.get("department")
 
 
+        if all([department,department_id]):
 
+            vml = Vm_last_status(filename=filename,path=filepath,deleted = 0,
+                           user_id=user_id,user_name = user_name,role=role,
+                           role_id= role_id,
+                           department_id=department_id,
+                            department = department,
+                           )
+        else:
+            vml = Vm_last_status(filename=filename,path=filepath,deleted = 0,
+                           user_id=user_id,user_name = user_name,role=role,
+                           role_id= role_id,
+                           )
+
+
+
+
+        try:
+            session.add(vml)
+            session.commit()
+            return "ok",200
+        except Exception as e:
+            session.rollback()
+            print(e,"记录日志")
+            return "not ok",404
+
+    except Exception as e:
+        print(e)
+
+
+
+@app.route("/db/excel/movename",methods=['POST'])
+def move():
+    """
+    解决文件改名之后，造成的数据库文件冗余问题。
+    :return:
+    """
 
     try:
-        session.add(vml)
-        session.commit()
-        return "ok",200
+
+        data = request.json
+
+        name = data.get("filename")
+        db = data.get("dbname")
+        status_id = data.get("status")
+        work_id = data.get("work")
+        date_id = data.get("date")
+
+
+        if status_id == "草":
+            status_id = 1
+        elif status_id =="报":
+            status_id = 2
+        elif status_id == "副":
+            status_id =3
+        elif status_id == "垃":
+            status_id =4
+        elif status_id == "收":
+            status_id = 5
+
+
+
+        if date_id == "日":
+            date_id = 1
+        elif date_id =="周":
+            date_id = 2
+        elif date_id == "旬":
+            date_id =3
+        elif date_id == "月":
+            date_id =4
+        elif date_id == "季":
+            date_id =5
+        elif date_id == "半":
+            date_id =6
+        elif date_id == "年":
+            date_id =7
+
+
+        if work_id == "人":
+            work_id = 1
+        elif work_id =="机":
+            work_id = 2
+        elif work_id == "物":
+            work_id =3
+        elif work_id == "法":
+            work_id =4
+
+
+        conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, db)
+        engine = sqlalchemy.create_engine(conn_str, echo=True)
+
+            # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
+        Session = sessionmaker(bind=engine)
+        session = Session()
+
+
+        file = session.query(User_excel).filter(User_excel.filename == name).\
+                filter(User_excel.status_id == status_id).filter(User_excel.date_id == date_id)\
+                .filter(User_excel.work_id == work_id).all()
+
+
+
+        for i in file:
+            delete_fdfs(i.path)
+            # i.deleted = 1
+
+
+            try:
+
+                session.delete(i)
+                session.commit()
+                return "file is deleted",200
+
+
+            except  Exception as e:
+                print("我是错误{}".format(e))
+                session.rollback()
+                return "delete error",404
+
     except Exception as e:
-        session.rollback()
-        print(e,"记录日志")
-        return "not ok",404
+        print(e)
+        return "delete error",404
+
+
+
 
 
 
 
 if __name__ == '__main__':
     app.register_blueprint(mysql)
+    app.register_blueprint(health)
     print(app.url_map)
     try:
-        consul.agent.service.register(name='db', service_id='db', address='0.0.0.0', port=5000, tags=["db"],
-                                               interval='5s', httpcheck="http://191.0.0.1:9654/")
+        consul.agent.service.register(name='db', service_id='db', address='192.168.1.165', port=5000, tags=["db"],
+                                               interval='5s', httpcheck="http://192.168.1.165:5000/health/check")
+
     except Exception as e:
         print("服务没有注册成功:{0}".format(e))
+    #上面是注册服务发现，向consul注册服务。
 
-    # todo 上线之前注册consul,但是这里还是要深挖一下。关于健康监测的接口知识
     app.run("0.0.0.0",5000)
 
 
