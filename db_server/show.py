@@ -2,14 +2,14 @@ from flask import Blueprint
 import sqlalchemy
 from flask import Flask,request,jsonify,current_app
 from sqlalchemy.orm import sessionmaker,relationship
-from db_server.models import User_excel,Vm_last_status,Status,Date_name,Work_name,Base
+from models import User_excel,Vm_last_status,Status,Date_name,Work_name,Base
 from sqlalchemy_utils import database_exists,create_database
-from db_server.manager.model import Manage
+from model import Manage
 
 mysql = Blueprint('mysql',__name__)
-host = '192.168.29.129'
+host = '172.16.13.1'
 user = 'root'
-password = ''
+password = '123456'
 port = 3306
 
 
@@ -87,6 +87,14 @@ def create_db():
         user_role = data.get("work")  # 这里和以前的角色内容一样，只不过名字变成了岗位
         user_job_id = data.get("numVal")
         user_department_id = data.get("department_id")
+
+        for i in  [user_id,user_name,user_role,user_job_id,user_department_id]:
+            if i.isspace() or len(i) == 0:
+                res = {'status': 404, "data": "数据格式不合法，请重新请求"}
+                return jsonify(res),404
+
+
+
         database = str(user_id) + ":" +user_name +":" + str(user_job_id) +":" + user_role
 
         conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
@@ -96,7 +104,7 @@ def create_db():
             print(engine.url)
 
             # Base.metadata.drop_all(engine)
-            return "数据库已经存在，"
+            return jsonify("数据库已经存在，"),200
 
         else:
             create_database(engine.url)
@@ -134,7 +142,7 @@ def create_db():
             session.rollback()
             print(e,"记录日志")
             res = {'status': 404, "data": "not ok"}
-            return res,404
+            return jsonify(res),404
 
     except Exception as e:
         current_app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ", e, request.remote_addr,
@@ -316,6 +324,8 @@ def excel_show():
         user_name = data.get("name")
 
 
+
+
         database = find_db(user_name)
         conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
         engine = sqlalchemy.create_engine(conn_str, echo=True)
@@ -336,6 +346,21 @@ def excel_show():
         current_app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ",e,request.remote_addr,request.user_agent.browser)
 
         return jsonify({'status': 404, "data": None}),404
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

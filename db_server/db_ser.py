@@ -2,22 +2,25 @@ import sqlalchemy
 import logging
 from consulate import Consul
 from flask import Flask,request,jsonify
-from db_server.utils import delete_fdfs
+from utils import delete_fdfs
 from sqlalchemy.orm import sessionmaker,relationship
-from db_server.models import User_excel,Vm_last_status
-from db_server.show import mysql
+from models import User_excel,Vm_last_status
+from show import mysql
 from flask_cors import CORS
-from db_server.health_check import health
+from health_check import health
 
 app = Flask(__name__)
+app.register_blueprint(mysql)
+app.register_blueprint(health)
 CORS(app)
 
+
 #这里由两种传参方式，json，还是直接restful
-host = '192.168.29.129'
+host = '172.16.13.1'
 user = 'root'
-password = ''
+password = '123456'
 port = 3306
-consul = Consul(host='192.168.29.129', port=8500)   # 服务发现集群consul连接器。
+consul = Consul(host='172.16.13.1', port=8500)   # 服务发现集群consul连接器。
 
 """
 
@@ -623,28 +626,31 @@ def move():
 
 
 
-
-
-
 if __name__ == '__main__':
-    app.register_blueprint(mysql)
-    app.register_blueprint(health)
+
+
     print(app.url_map)
     try:
-        consul.agent.service.register(name='db', service_id='db', address='192.168.1.165', port=5000, tags=["db"],
-                                               interval='5s', httpcheck="http://192.168.1.165:5000/health/check")
+        consul.agent.service.register(name='db', service_id='db', address='172.16.13.1', port=5002, tags=["db"],
+                                               interval='5s', httpcheck="http://172.16.13.1:5002/health/check")
 
     except Exception as e:
         print("服务没有注册成功:{0}".format(e))
+        app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ", e, request.remote_addr,
+                         request.user_agent.browser)
     #上面是注册服务发现，向consul注册服务。
 
-    handler = logging.FileHandler('E:\\logs\\db_server.log', encoding='UTF-8')
+    handler = logging.FileHandler('/var/logs/db_server.log', encoding='UTF-8')
     handler.setLevel(logging.DEBUG)
     logging_format = logging.Formatter("%(asctime)s app:flask fun:%(funcName)s %(levelname)s %(message)s")
     handler.setFormatter(logging_format)
     app.logger.addHandler(handler)
 
-    app.run("0.0.0.0",5000)
+    app.run()
+
+
+
+
 
 
 

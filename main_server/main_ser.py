@@ -1,9 +1,12 @@
 import logging
 import requests
+import  jwt
 from flask import Flask,request,jsonify
-from main_server.server_find import __getService
+from server_find import __getService
 from flask_cors import CORS
-from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
+
+
+
 
 
 '''主服务框架'''
@@ -15,10 +18,8 @@ app = Flask(__name__)
 class Config(object):
     DEBUG = False
 app.config.from_object(Config)
-
 CORS(app)  # 允许跨站访问
-SERECT_KEY = 'fdjsklafjkldsja'  #密匙 ，权限那里给的。
-Ser = Serializer(SERECT_KEY)
+SECRET_KEY = '+)dno%=uwq*8rv4^u-^9-2s!gf=!wl_75iqqj56wyr&!s4yolg'
 
 
 
@@ -35,27 +36,77 @@ def vm_login():
 
 
     data = request.form
-    token = data.get('token')
+
+    print(data)
+
     user_name = data.get('user_name')
     user_id = data.get('user_id')
+    data = data.get('token')
+    try:
+
+        data = jwt.decode(data, SECRET_KEY, algorithms=['HS256'])
+        print(data)
+
+    except Exception as e:
+        res = {'status': 404, "data": "口令不合法，非法登录"}
+        return jsonify(res)
+
+
+
+
+    leader_id = data.get("leader_id")
+    leader_name=data.get("leader_name")
+    leader_role=data.get("leader_role")
+    leader_job_id = data.get("leader_job_id")
+    role = data.get("role")
+    role_id=data.get("role_id")
+    job_id = data.get("job_id")
+    department_id = data.get("department_id")
+    department = data.get("department")
+
+    for i in [user_name,user_id,role,role_id,job_id,department_id,department]:
+        if not isinstance(i,int):
+
+            if i.isspace() or len(i) == 0:
+                res = {'status': 404, "data": "数据格式不合法，请重新请求"}
+                return jsonify(res)
+
+
 
     try:
 
-        payload = Ser.loads(token)
 
-        payload = {'user_name': user_name, 'user_id': user_id, 'payload': payload}
-        resp = requests.post("127.4.1.1:6000", json=payload)
+        payload = {'user_name': user_name,
+                   'user_id': user_id,
 
-        res = {'status': 200, "data": resp.text}
+                   "payload":
+                       {"leader_id":leader_id,
+                   "department":department,"department_id":department_id,"job_id":job_id,
+                   "role_id":role_id,"role":role,"leader_job_id":leader_job_id,
+                   "leader_name":leader_name,"leader_role":leader_role}
+                   }
 
-        return jsonify(res), 200
+        print(111111)
+        resp = requests.post("http://172.16.11.5:5006/dispatcher", json=payload)  #访问毕工服务地址
+        print(resp.text)
+
+        if resp.text:
+
+            res = {'status': 200, "data": resp.text}
+            return jsonify(res)
+        else:
+            res = {'status': 404,  "data": "没有可用的虚拟机"}
+            return jsonify(res)
+
 
     except Exception as e:
 
         app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ",e,request.remote_addr,request.user_agent.browser)
 
-        d = {'status': 404,  "data": "验证未通过，请重新登陆"}
-        return jsonify(d),404
+        d = {'status': 406,  "data": "验证未通过，请重新登陆"}
+        return jsonify(d)
+
+
 
 
 
@@ -76,31 +127,31 @@ def find_service(name):
         print(data)
 
         print(name)
-        service = __getService(name=name,host='192.168.29.129',port='8500',token=None)
+        service = __getService(name=name,host='172.16.13.1',port='8500',token=None)
         app.logger.info("remote_ip:{},user_agent:{}".format(request.remote_addr,request.user_agent.browser))
 
 
         res  = {'status': 200, "data":service }
         print(res)
-        return  jsonify(res),200
+        return  jsonify(res)
 
     except Exception as e:
         print(e)
         app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ",e,request.remote_addr,request.user_agent.browser)
         res = {'status': 404, "data": "无法获取服务地址"}
-        return  jsonify(res),404
+        return  jsonify(res)
 
 
 
 if __name__ == '__main__':
 
     print(app.url_map)
-    handler = logging.FileHandler('E:\\logs\\main_server.log', encoding='UTF-8')
+    handler = logging.FileHandler('/var/logs/flask_main.log', encoding='UTF-8')
     handler.setLevel(logging.DEBUG)
     logging_format = logging.Formatter("%(asctime)s app:flask fun:%(funcName)s %(levelname)s %(message)s")
     handler.setFormatter(logging_format)
     app.logger.addHandler(handler)
-    app.run('0.0.0.0',5002)
+    app.run()
 
 
 
