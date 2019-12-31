@@ -1,9 +1,14 @@
 import logging
+import sqlalchemy
+import base64
 import requests
+from sqlalchemy.orm import sessionmaker
 import  jwt
 from flask import Flask,request,jsonify
 from server_find import __getService
 from flask_cors import CORS
+from models import Ip_table
+
 
 
 
@@ -21,6 +26,46 @@ app.config.from_object(Config)
 CORS(app)  # 允许跨站访问
 SECRET_KEY = '+)dno%=uwq*8rv4^u-^9-2s!gf=!wl_75iqqj56wyr&!s4yolg'
 
+host = '172.16.13.1'
+user = 'root'
+password = '123456'
+port = 3306
+
+@app.route('/vm/status',methods=['POST'])
+def vm_status():
+    """
+    用来改变0端库里数据表的状态，变成可用状态
+
+
+    :return:
+    """
+
+
+    data = request.json
+    role = data.get("role")
+    database = 'manage_table'
+    conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+    engine = sqlalchemy.create_engine(conn_str, echo=True)
+
+    # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    ipa = session.query(Ip_table).filter(Ip_table.role == role).filter(
+        Ip_table.status == 1).limit(1).one()
+
+    try:
+        ipa.status = 0
+
+        session.add(ipa)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        print(e, "记录日志")
+
+
+    print("我已经退出3389")
+    return "ok"
 
 
 @app.route('/vm/login',methods=['POST'])
@@ -48,6 +93,7 @@ def vm_login():
         print(data)
 
     except Exception as e:
+        print(e)
         res = {'status': 404, "data": "口令不合法，非法登录"}
         return jsonify(res)
 
@@ -75,6 +121,20 @@ def vm_login():
 
     try:
 
+        database = 'manage_table'
+        conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+        engine = sqlalchemy.create_engine(conn_str, echo=True)
+
+        # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
+        Session = sessionmaker(bind=engine)
+        session = Session()
+
+        ips = session.query(Ip_table).filter(Ip_table.role == role).filter(
+            Ip_table.status == 0).limit(1).one()
+
+
+        l_ips = session.query(Ip_table).filter(Ip_table.role == leader_role).limit(1).one()
+
 
         payload = {'user_name': user_name,
                    'user_id': user_id,
@@ -83,19 +143,50 @@ def vm_login():
                        {"leader_id":leader_id,
                    "department":department,"department_id":department_id,"job_id":job_id,
                    "role_id":role_id,"role":role,"leader_job_id":leader_job_id,
-                   "leader_name":leader_name,"leader_role":leader_role}
+                   "leader_name":leader_name,"leader_role":leader_role,
+                        "leader_ip ":l_ips.ip}
                    }
 
-        print(111111)
-        resp = requests.post("http://172.16.11.5:5006/dispatcher", json=payload)  #访问毕工服务地址
-        print(resp.text)
 
-        if resp.text:
+        print(ips.ip)
+        print(payload)
+        # resp = requests.post("http://172.16.11.5:5006/dispatcher", json=payload)  #访问毕工服务地址,单点，
+        # resp = requests.post("http:// 172.16.6.100:9999/getvm", json=payload)    # 集群调度。请求毕工
 
-            res = {'status': 200, "data": resp.text}
+
+
+        # "ip|端口|用户名|密码base64"
+
+
+        if ips:
+            try:
+
+                requests.post("http://{}/vm".format(ips.ip),json=payload,timeout=2)
+            except Exception as e:
+                print("我已经发了信息到虚拟机{0}".format(e))
+
+
+
+            a = "{0}|3389|worker|pass@2019".format(ips.ip).encode()
+            a1 = base64.b64encode(a).decode()
+            print(a1)
+
+
+            res = {'status': 200, "data": a1}
+            try:
+                ips.status =  1
+
+                session.add(ips)
+                session.commit()
+            except Exception as e:
+                session.rollback()
+                print(e, "记录日志")
+
             return jsonify(res)
+
+
         else:
-            res = {'status': 404,  "data": "没有可用的虚拟机"}
+            res = {'status': 408,  "data": "没有可用的虚拟机"}
             return jsonify(res)
 
 
@@ -152,6 +243,8 @@ if __name__ == '__main__':
     handler.setFormatter(logging_format)
     app.logger.addHandler(handler)
     app.run()
+
+
 
 
 

@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask,request
 from flask_caching import Cache
 
 
@@ -35,6 +35,12 @@ def set_cache():
 
 
 
+@app.route("/hello",methods=['POST'])
+def hello():
+    t = request.json
+    print(t)
+    return "ok"
+
 @app.route('/set')
 def set_cache3():
     #先去缓存中查找数据
@@ -60,4 +66,5 @@ def set_cache3():
 
 
 if __name__  == "__main__":
-    app.run('0.0.0.0',9000)
+    app.run('0.0.0.0',5000)
+

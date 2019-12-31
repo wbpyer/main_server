@@ -2,7 +2,7 @@ from flask import Blueprint
 import sqlalchemy
 from flask import Flask,request,jsonify,current_app
 from sqlalchemy.orm import sessionmaker,relationship
-from models import User_excel,Vm_last_status,Status,Date_name,Work_name,Base
+from models import User_excel,Vm_last_status,Status,Base
 from sqlalchemy_utils import database_exists,create_database
 from model import Manage
 
@@ -114,27 +114,28 @@ def create_db():
         Session = sessionmaker(bind=engine)
         session = Session()
 
-        s = Status(status_name ="草")
-        s1 = Status(status_name="报")
-        s2 = Status(status_name="副")
+        # s = Status(status_name ="草")
+        s1 = Status(status_name="我的文件")
+        s2 = Status(status_name="报")
         s3 = Status(status_name="垃")
         s4 = Status(status_name = "收")
 
-        d1 = Date_name(date_name = "日")
-        d2 = Date_name(date_name = "周")
-        d3 = Date_name(date_name = "旬")
-        d4 =Date_name(date_name = "月")
-        d5 =Date_name(date_name = "季")
-        d6 = Date_name(date_name = "半")
-        d7 = Date_name(date_name = "年")
-
-        w1 = Work_name(work_name = "人")
-        w2 = Work_name(work_name = "机")
-        w3 = Work_name(work_name = "物")
-        w4 = Work_name(work_name = "法")
+        # d1 = Date_name(date_name = "日")
+        # d2 = Date_name(date_name = "周")
+        # d3 = Date_name(date_name = "旬")
+        # d4 =Date_name(date_name = "月")
+        # d5 =Date_name(date_name = "季")
+        # d6 = Date_name(date_name = "半")
+        # d7 = Date_name(date_name = "年")
+        #
+        # w1 = Work_name(work_name = "人")
+        # w2 = Work_name(work_name = "机")
+        # w3 = Work_name(work_name = "物")
+        # w4 = Work_name(work_name = "法")
 
         try :
-            session.add_all([s,s1,s2,s3,s4,d1,d2,d3,d4,d5,d6,d7,w1,w2,w3,w4])
+            # session.add_all([s,s1,s2,s3,s4,d1,d2,d3,d4,d5,d6,d7,w1,w2,w3,w4])
+            session.add_all([ s1, s2, s3, s4])
             session.commit()
             res = {'status': 200, "data": "ok"}
             return jsonify(res),200
@@ -201,10 +202,10 @@ def excel_list():
     '''
 
     data = request.form
-    level_3 = data.get("level_3")
+    # level_3 = data.get("level_3")
     user_name = data.get("name")
-    level_1 = data.get("level_1")
-    level_2 = data.get("level_2")
+    level = data.get("level")
+    # level_2 = data.get("level_2")
     try:
         page = int(data.get("page",1))
         page = page if page > 0 else 1
@@ -219,42 +220,42 @@ def excel_list():
 
 
 
-    if level_3 == "草":
-        level_3 = 1
-    elif level_3 =="报":
-        level_3 = 2
-    elif level_3 == "副":
-        level_3 = 3
-    elif level_3 == "垃":
-        level_3 = 4
-    elif level_3 == "收":
-        level_3 = 5
+    if level == "收":
+        level = 4
+    elif level =="报":
+        level = 2
+    # elif level_1 == "副":
+    #     level_1 = 3
+    # elif level_1 == "垃":
+    #     level_1 = 4
+    # elif level_1 == "收":
+    #     level_1 = 5
 
 
-    if level_2 == "日":
-        level_2 = 1
-    elif level_2 == "周":
-        level_2 = 2
-    elif level_2 == "旬":
-        level_2 = 3
-    elif level_2 == "月":
-        level_2 = 4
-    elif level_2 == "季":
-        level_2 = 5
-    elif level_2 == "半":
-        level_2 = 6
-    elif level_2 == "年":
-        level_2 = 7
-
-
-    if level_1 == "人":
-        level_1 = 1
-    elif level_1 == "机":
-        level_1 = 2
-    elif level_1 == "物":
-        level_1 = 3
-    elif level_1 == "法":
-        level_1 = 4
+    # if level_2 == "日":
+    #     level_2 = 1
+    # elif level_2 == "周":
+    #     level_2 = 2
+    # elif level_2 == "旬":
+    #     level_2 = 3
+    # elif level_2 == "月":
+    #     level_2 = 4
+    # elif level_2 == "季":
+    #     level_2 = 5
+    # elif level_2 == "半":
+    #     level_2 = 6
+    # elif level_2 == "年":
+    #     level_2 = 7
+    #
+    #
+    # if level_1 == "人":
+    #     level_1 = 1
+    # elif level_1 == "机":
+    #     level_1 = 2
+    # elif level_1 == "物":
+    #     level_1 = 3
+    # elif level_1 == "法":
+    #     level_1 = 4
 
 
 
@@ -271,9 +272,12 @@ def excel_list():
         start = (page - 1) * size
 
 
-        exceles = session.query(User_excel).filter(User_excel.work_id == level_1). \
-        filter(User_excel.date_id == level_2).filter(User_excel.status_id == level_3) \
-        .order_by(User_excel.created_date.desc()).all()
+        # exceles = session.query(User_excel).filter(User_excel.work_id == level_1). \
+        # filter(User_excel.date_id == level_2).filter(User_excel.status_id == level_3) \
+        # .order_by(User_excel.created_date.desc()).all()
+
+        exceles = session.query(User_excel).filter(User_excel.status_id == level).filter(User_excel.deleted == 0) \
+            .order_by(User_excel.created_date.desc()).all()
 
         count = len(exceles)  # 总条数
 
@@ -285,8 +289,14 @@ def excel_list():
         for i in exceles:
             json_dict = {}
             json_dict["id"] = i.id
+
+
+            filepath = "http://172.16.13.1:8080/"+ i.path
+            json_dict["filepath"] = filepath
             json_dict["filename"] = i.filename
             json_dict["created_date"] = i.created_date
+
+
             json_list.append(json_dict)
 
 

@@ -33,12 +33,12 @@ class User_excel(Base):
     any = Column(String(20), nullable=True)
     status_id = Column(Integer, ForeignKey("status.id"))
     status = relationship("Status",back_populates= "exceles")
-    date_id = Column(Integer, ForeignKey("date_name.id"))
-    date = relationship("Date_name", back_populates="exceles")
-
-    # 外键关系
-    work_id = Column(Integer, ForeignKey("work_name.id"))
-    work =  relationship("Work_name", back_populates="exceles")
+    # date_id = Column(Integer, ForeignKey("date_name.id"))
+    # date = relationship("Date_name", back_populates="exceles")
+    #
+    # # 外键关系
+    # work_id = Column(Integer, ForeignKey("work_name.id"))
+    # work =  relationship("Work_name", back_populates="exceles")
 
 
     # file_type = Column(Integer,ForeignKey("file_type.id"),nullable=True)
@@ -87,26 +87,26 @@ class Status(Base):
 
 
 
-class Date_name(Base):
-    """
-    日期类型表, 日，周，月
-    """
-    __tablename__ = "date_name"
-    id = Column(Integer, primary_key=True)
-    date_name = Column(String(5), nullable=False)
-    exceles = relationship("User_excel", back_populates="date")
-
-
-class Work_name(Base):
-    """
-    工作类型表, 人，机，物，法
-    """
-    __tablename__ = "work_name"
-    id = Column(Integer, primary_key=True)
-    work_name = Column(String(5), nullable=False)
-
-    exceles = relationship("User_excel", back_populates="work")
-
+# class Date_name(Base):
+#     """
+#     日期类型表, 日，周，月
+#     """
+#     __tablename__ = "date_name"
+#     id = Column(Integer, primary_key=True)
+#     date_name = Column(String(5), nullable=False)
+#     exceles = relationship("User_excel", back_populates="date")
+#
+#
+# class Work_name(Base):
+#     """
+#     工作类型表, 人，机，物，法
+#     """
+#     __tablename__ = "work_name"
+#     id = Column(Integer, primary_key=True)
+#     work_name = Column(String(5), nullable=False)
+#
+#     exceles = relationship("User_excel", back_populates="work")
+#
 
 
 # class File_type(Base):

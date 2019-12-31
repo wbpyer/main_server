@@ -15,6 +15,7 @@ app.register_blueprint(health)
 CORS(app)
 
 
+
 #这里由两种传参方式，json，还是直接restful
 host = '172.16.13.1'
 user = 'root'
@@ -63,52 +64,64 @@ def excel_delete(db_name):
         role_id = data.get("role_id")
         department_id = data.get("department_id")
         department = data.get("department")
-        status_id = 4
+        status_id = data.get("status_id")
+
+
+        if status_id == "我的办公桌":
+            status_id = 1
+        elif status_id =="报":
+            status_id = 2
+        elif status_id == "垃":
+            status_id =3
+        elif status_id == "收":
+            status_id =4
+
+        # date_id = data.get("date_id")
+        # if date_id == "日":
+        #     date_id = 1
+        # elif date_id =="周":
+        #     date_id = 2
+        # elif date_id == "旬":
+        #     date_id =3
+        # elif date_id == "月":
+        #     date_id =4
+        # elif date_id == "季":
+        #     date_id = 5
+        # elif date_id == "半":
+        #     date_id = 6
+        # elif date_id == "年":
+        #     date_id = 7
 
 
 
-        date_id = data.get("date_id")
-        if date_id == "日":
-            date_id = 1
-        elif date_id =="周":
-            date_id = 2
-        elif date_id == "旬":
-            date_id =3
-        elif date_id == "月":
-            date_id =4
-        elif date_id == "季":
-            date_id = 5
-        elif date_id == "半":
-            date_id = 6
-        elif date_id == "年":
-            date_id = 7
-
-
-
-        work_id = data.get("work_id")
-        if work_id == "人":
-            work_id = 1
-        elif work_id =="机":
-            work_id = 2
-        elif work_id == "物":
-            work_id =3
-        elif work_id == "法":
-            work_id =4
+        # work_id = data.get("work_id")
+        # if work_id == "人":
+        #     work_id = 1
+        # elif work_id =="机":
+        #     work_id = 2
+        # elif work_id == "物":
+        #     work_id =3
+        # elif work_id == "法":
+        #     work_id =4
 
 
 
         # file_type_id = data.get("file_type_id")  0.1暂时先不考虑。先放空
 
         #查询条件更加精准化，理论上，一定会有重名文件，因为是多级目录，所以一定要精准，这样就没问题了
-        name = session.query(User_excel).filter(User_excel.filename == filename).filter(User_excel.work_id == work_id).filter(User_excel.date_id ==
-            date_id).all()
+        # name = session.query(User_excel).filter(User_excel.filename == filename).filter(User_excel.work_id == work_id).filter(User_excel.date_id ==
+        #     date_id).all()
+
+
+        name = session.query(User_excel).filter(User_excel.filename == filename).filter(User_excel.status_id == status_id).all()
+
 
         if name:
             for i in name:
                 print(i.path)
                 delete_fdfs(i.path)
                 i.path = filepath
-                i.status_id = 4
+                # i.status_id = 4
                 i.deleted = 1
 
                 try:
@@ -129,12 +142,12 @@ def excel_delete(db_name):
                            role_id= role_id,fgroup=file_ip,
                            department_id=department_id,
                             department = department,
-                           status_id=status_id,date_id=date_id,work_id=work_id)
+                           status_id=status_id)
             else:
                 excel = User_excel(filename=filename,path=filepath,deleted = 1,
                            user_id=user_id,user_name = user_name,role=role,
                            role_id= role_id,fgroup = file_ip,
-                           status_id=status_id,date_id=date_id,work_id=work_id)
+                           status_id=status_id)
 
 
             try:
@@ -148,6 +161,11 @@ def excel_delete(db_name):
 
     except Exception as e:
         app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ",e,request.remote_addr,request.user_agent.browser)
+
+
+
+
+
 
 
 
@@ -188,48 +206,50 @@ def excel_add(db_name):
         department = data.get("department")
         status_id = data.get("status_id")
 
-        if status_id == "草":
+        if status_id == "我的文件":
             status_id = 1
         elif status_id =="报":
             status_id = 2
-        elif status_id == "副":
-            status_id =3
         elif status_id == "垃":
-            status_id =4
+            status_id =3
         elif status_id == "收":
-            status_id = 5
+            status_id =4
 
 
-        date_id = data.get("date_id")
-        if date_id == "日":
-            date_id = 1
-        elif date_id =="周":
-            date_id = 2
-        elif date_id == "旬":
-            date_id =3
-        elif date_id == "月":
-            date_id =4
-        elif date_id == "季":
-            date_id =5
-        elif date_id == "半":
-            date_id =6
-        elif date_id == "年":
-            date_id =7
 
-        work_id = data.get("work_id")
-        if work_id == "人":
-            work_id = 1
-        elif work_id =="机":
-            work_id = 2
-        elif work_id == "物":
-            work_id =3
-        elif work_id == "法":
-            work_id =4
+        # date_id = data.get("date_id")
+        # if date_id == "日":
+        #     date_id = 1
+        # elif date_id =="周":
+        #     date_id = 2
+        # elif date_id == "旬":
+        #     date_id =3
+        # elif date_id == "月":
+        #     date_id =4
+        # elif date_id == "季":
+        #     date_id =5
+        # elif date_id == "半":
+        #     date_id =6
+        # elif date_id == "年":
+        #     date_id =7
+        #
+        # work_id = data.get("work_id")
+        # if work_id == "人":
+        #     work_id = 1
+        # elif work_id =="机":
+        #     work_id = 2
+        # elif work_id == "物":
+        #     work_id =3
+        # elif work_id == "法":
+        #     work_id =4
         # file_type_id = data.get("file_type_id")  0.1暂时先不考虑。先放空
 
 
-        file = session.query(User_excel).filter(User_excel.filename == filename).filter(User_excel.status_id == status_id).filter(User_excel.date_id == date_id)\
-            .filter(User_excel.work_id == work_id).all()
+        # file = session.query(User_excel).filter(User_excel.filename == filename).filter(User_excel.status_id == status_id).filter(User_excel.date_id == date_id)\
+        #     .filter(User_excel.work_id == work_id).all()
+        file = session.query(User_excel).filter(User_excel.filename == filename).filter(
+            User_excel.status_id == status_id).all()
+
 
         if file:
             for i in file:
@@ -250,12 +270,13 @@ def excel_add(db_name):
                            role_id= role_id,fgroup=file_ip,
                            department_id=department_id,
                             department = department,
-                           status_id=status_id,date_id=date_id,work_id=work_id)
+                           status_id=status_id)
             else:
                 excel = User_excel(filename=filename,path=filepath,deleted = 0,
                            user_id=user_id,user_name = user_name,role=role,
                            role_id= role_id,fgroup=file_ip,
-                           status_id=status_id,date_id=date_id,work_id=work_id)
+                           status_id=status_id)
+
             try:
                 session.add(excel)
                 session.commit()
@@ -264,6 +285,8 @@ def excel_add(db_name):
                 session.rollback()
                 print(e,"记录日志")
                 return "not ok",404
+
+
 
     except Exception as e:
         app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ",e,request.remote_addr,request.user_agent.browser)
@@ -304,34 +327,34 @@ def excel_add_leader(db_name):
         role_id = data.get("role_id")
         department_id = data.get("department_id")
         department = data.get("department")
-        status_id = 5  # 报上去的，在领导那里，体现的只能是收里面。
+        status_id = 4  # 报上去的，在领导那里，体现的只能是收里面。
 
 
-        date_id = data.get("date_id")
-        if date_id == "日":
-            date_id = 1
-        elif date_id =="周":
-            date_id = 2
-        elif date_id == "旬":
-            date_id =3
-        elif date_id == "月":
-            date_id =4
-        elif date_id == "季":
-            date_id =5
-        elif date_id == "半":
-            date_id =6
-        elif date_id == "年":
-            date_id =7
-
-        work_id = data.get("work_id")
-        if work_id == "人":
-            work_id = 1
-        elif work_id =="机":
-            work_id = 2
-        elif work_id == "物":
-            work_id =3
-        elif work_id == "法":
-            work_id =4
+        # date_id = data.get("date_id")
+        # if date_id == "日":
+        #     date_id = 1
+        # elif date_id =="周":
+        #     date_id = 2
+        # elif date_id == "旬":
+        #     date_id =3
+        # elif date_id == "月":
+        #     date_id =4
+        # elif date_id == "季":
+        #     date_id =5
+        # elif date_id == "半":
+        #     date_id =6
+        # elif date_id == "年":
+        #     date_id =7
+        #
+        # work_id = data.get("work_id")
+        # if work_id == "人":
+        #     work_id = 1
+        # elif work_id =="机":
+        #     work_id = 2
+        # elif work_id == "物":
+        #     work_id =3
+        # elif work_id == "法":
+        #     work_id =4
 
         # file_type_id = data.get("file_type_id")  0.1暂时先不考虑。先放空
 
@@ -344,14 +367,14 @@ def excel_add_leader(db_name):
                            role_id= role_id,fgroup = file_ip,
                            department_id=department_id,
                             department = department,
-                           status_id=status_id,date_id=date_id,work_id=work_id)
+                           status_id=status_id)
 
 
         else:
             excel = User_excel(filename=filename,path=filepath,deleted = 0,
                            user_id=user_id,user_name = user_name,role=role,
                            role_id= role_id,fgroup = file_ip,
-                           status_id=status_id,date_id=date_id,work_id=work_id)
+                           status_id=status_id)
         try:
             session.add(excel)
             session.commit()
@@ -446,7 +469,7 @@ def vm_latest_find_submit(db_name):
 
         files = session.query(User_excel).filter(User_excel.user_name != user_name).all()
 
-        d = [(file.filename,file.path,file.work_id,file.date_id)  for file in files ]
+        d = [(file.filename,file.path)  for file in files ]
 
         return jsonify(d)
 
@@ -543,47 +566,47 @@ def move():
         name = data.get("filename")
         db = data.get("dbname")
         status_id = data.get("status")
-        work_id = data.get("work")
-        date_id = data.get("date")
+        # work_id = data.get("work")
+        # date_id = data.get("date")
 
 
-        if status_id == "草":
+        if status_id == "我的文件":
             status_id = 1
         elif status_id =="报":
             status_id = 2
-        elif status_id == "副":
-            status_id =3
         elif status_id == "垃":
-            status_id =4
+            status_id =3
         elif status_id == "收":
-            status_id = 5
+            status_id =4
+        # elif status_id == "收":
+        #     status_id = 5
 
 
 
-        if date_id == "日":
-            date_id = 1
-        elif date_id =="周":
-            date_id = 2
-        elif date_id == "旬":
-            date_id =3
-        elif date_id == "月":
-            date_id =4
-        elif date_id == "季":
-            date_id =5
-        elif date_id == "半":
-            date_id =6
-        elif date_id == "年":
-            date_id =7
-
-
-        if work_id == "人":
-            work_id = 1
-        elif work_id =="机":
-            work_id = 2
-        elif work_id == "物":
-            work_id =3
-        elif work_id == "法":
-            work_id =4
+        # if date_id == "日":
+        #     date_id = 1
+        # elif date_id =="周":
+        #     date_id = 2
+        # elif date_id == "旬":
+        #     date_id =3
+        # elif date_id == "月":
+        #     date_id =4
+        # elif date_id == "季":
+        #     date_id =5
+        # elif date_id == "半":
+        #     date_id =6
+        # elif date_id == "年":
+        #     date_id =7
+        #
+        #
+        # if work_id == "人":
+        #     work_id = 1
+        # elif work_id =="机":
+        #     work_id = 2
+        # elif work_id == "物":
+        #     work_id =3
+        # elif work_id == "法":
+        #     work_id =4
 
 
         conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, db)
@@ -594,28 +617,29 @@ def move():
         session = Session()
 
 
-        file = session.query(User_excel).filter(User_excel.filename == name).\
-                filter(User_excel.status_id == status_id).filter(User_excel.date_id == date_id)\
-                .filter(User_excel.work_id == work_id).all()
+        # file = session.query(User_excel).filter(User_excel.filename == name).\
+        #         filter(User_excel.status_id == status_id).filter(User_excel.date_id == date_id)\
+        #         .filter(User_excel.work_id == work_id).all()
+
+
+        file = session.query(User_excel).filter(User_excel.filename == name). \
+            filter(User_excel.status_id == status_id).all()
+
+
+
 
 
 
         for i in file:
             delete_fdfs(i.path)
-            # i.deleted = 1
+            session.delete(i)
+            session.commit()
+
+        return "file is deleted",200
 
 
-            try:
-
-                session.delete(i)
-                session.commit()
-                return "file is deleted",200
 
 
-            except  Exception as e:
-                print("我是错误{}".format(e))
-                session.rollback()
-                return "delete error",404
 
     except Exception as e:
         print(e)
@@ -630,23 +654,23 @@ if __name__ == '__main__':
 
 
     print(app.url_map)
-    try:
-        consul.agent.service.register(name='db', service_id='db', address='172.16.13.1', port=5002, tags=["db"],
-                                               interval='5s', httpcheck="http://172.16.13.1:5002/health/check")
-
-    except Exception as e:
-        print("服务没有注册成功:{0}".format(e))
-        app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ", e, request.remote_addr,
-                         request.user_agent.browser)
+    # try:
+    #     consul.agent.service.register(name='db', service_id='db', address='172.16.13.1', port=5002, tags=["db"],
+    #                                            interval='5s', httpcheck="http://172.16.13.1:5002/health/check")
+    #
+    # except Exception as e:
+    #     print("服务没有注册成功:{0}".format(e))
+    #     app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ", e, request.remote_addr,
+    #                      request.user_agent.browser)
     #上面是注册服务发现，向consul注册服务。
 
-    handler = logging.FileHandler('/var/logs/db_server.log', encoding='UTF-8')
-    handler.setLevel(logging.DEBUG)
-    logging_format = logging.Formatter("%(asctime)s app:flask fun:%(funcName)s %(levelname)s %(message)s")
-    handler.setFormatter(logging_format)
-    app.logger.addHandler(handler)
+    # handler = logging.FileHandler('/var/logs/db_server.log', encoding='UTF-8')
+    # handler.setLevel(logging.DEBUG)
+    # logging_format = logging.Formatter("%(asctime)s app:flask fun:%(funcName)s %(levelname)s %(message)s")
+    # handler.setFormatter(logging_format)
+    # app.logger.addHandler(handler)
 
-    app.run()
+    app.run('0.0.0.0',5001)
 
 
 

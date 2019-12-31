@@ -15,3 +15,4 @@ class Manage(Base):
     name = Column(String(64), nullable=False)
 
 
+
