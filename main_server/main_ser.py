@@ -8,10 +8,7 @@ from flask import Flask,request,jsonify
 from server_find import __getService
 from flask_cors import CORS
 from models import Ip_table
-
-
-
-
+import redis
 
 
 '''主服务框架'''
@@ -26,23 +23,26 @@ app.config.from_object(Config)
 CORS(app)  # 允许跨站访问
 SECRET_KEY = '+)dno%=uwq*8rv4^u-^9-2s!gf=!wl_75iqqj56wyr&!s4yolg'
 
-host = '172.16.13.1'
+host = '172.16.240.1'
 user = 'root'
 password = '123456'
 port = 3306
+db2 = redis.Redis('172.16.240.1', 6379, 8) # 给王倩的站内跳转功能用的数据库。先这样。
+#3.23改动，改王倩提供了一个功能。
+
 
 @app.route('/vm/status',methods=['POST'])
 def vm_status():
     """
-    用来改变0端库里数据表的状态，变成可用状态
+    用来改变0端库里数据表的状态，变成可用状态，这里是我的退出程序时，退出时
+    调用的接口，当你要退出时。要调用这个接口，改写ipb表的状态
 
 
     :return:
     """
 
-
     data = request.json
-    role = data.get("role")
+    ip = data.get("ip")
     database = 'manage_table'
     conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
     engine = sqlalchemy.create_engine(conn_str, echo=True)
@@ -51,8 +51,7 @@ def vm_status():
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    ipa = session.query(Ip_table).filter(Ip_table.role == role).filter(
-        Ip_table.status == 1).limit(1).one()
+    ipa = session.query(Ip_table).filter(Ip_table.ip == ip).limit(1).one()
 
     try:
         ipa.status = 0
@@ -84,6 +83,8 @@ def vm_login():
 
     print(data)
 
+    # business = data.get('business')  #业务字段，没有这个字段，放在role里面。
+
     user_name = data.get('user_name')
     user_id = data.get('user_id')
     data = data.get('token')
@@ -104,11 +105,19 @@ def vm_login():
     leader_name=data.get("leader_name")
     leader_role=data.get("leader_role")
     leader_job_id = data.get("leader_job_id")
+
+    lower_id = data.get("lower_id")
+    lower_name = data.get("lower_name")
+    lower_role = data.get("lower_role")
+    lower_job_id = data.get("lower_job_id")
+
+    level = data.get("level")
     role = data.get("role")
     role_id=data.get("role_id")
     job_id = data.get("job_id")
     department_id = data.get("department_id")
     department = data.get("department")
+    is_leader = data.get("is_leader")
 
     for i in [user_name,user_id,role,role_id,job_id,department_id,department]:
         if not isinstance(i,int):
@@ -119,7 +128,9 @@ def vm_login():
 
 
 
+
     try:
+
 
         database = 'manage_table'
         conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
@@ -129,11 +140,18 @@ def vm_login():
         Session = sessionmaker(bind=engine)
         session = Session()
 
-        ips = session.query(Ip_table).filter(Ip_table.role == role).filter(
-            Ip_table.status == 0).limit(1).one()
 
 
-        l_ips = session.query(Ip_table).filter(Ip_table.role == leader_role).limit(1).one()
+        # 区分逻辑，如果是工区就用岗位来查表，如果不是，就用业务查。
+
+
+        ips = session.query(Ip_table).filter(Ip_table.status == 0).limit(1).one()
+
+
+
+
+
+        # l_ips = session.query(Ip_table).filter(Ip_table.role == leader_role).limit(1).one()
 
 
         payload = {'user_name': user_name,
@@ -143,10 +161,12 @@ def vm_login():
                        {"leader_id":leader_id,
                    "department":department,"department_id":department_id,"job_id":job_id,
                    "role_id":role_id,"role":role,"leader_job_id":leader_job_id,
-                   "leader_name":leader_name,"leader_role":leader_role,
-                        "leader_ip ":l_ips.ip}
-                   }
+                   "leader_name":leader_name,"leader_role":leader_role,"lower_name":lower_name,
+                        "lower_id":lower_id,"lower_role":lower_role,"lower_job_id":lower_job_id,
+                        "level":level,"is_leader":is_leader
 
+                        }
+                   }
 
         print(ips.ip)
         print(payload)
@@ -161,10 +181,16 @@ def vm_login():
         if ips:
             try:
 
-                requests.post("http://{}/vm".format(ips.ip),json=payload,timeout=2)
+                requests.post("http://{0}:5000/vm".format(ips.ip),json=payload,timeout=3)
             except Exception as e:
                 print("我已经发了信息到虚拟机{0}".format(e))
 
+
+            db2.set(ips.ip,user_name)  #给王倩的redis.
+
+
+
+            #这里为了帮王倩实现功能，我必须给redis里面发送一个信息
 
 
             a = "{0}|3389|worker|pass@2019".format(ips.ip).encode()
@@ -196,6 +222,7 @@ def vm_login():
 
         d = {'status': 406,  "data": "验证未通过，请重新登陆"}
         return jsonify(d)
+
 
 
 
@@ -243,6 +270,9 @@ if __name__ == '__main__':
     handler.setFormatter(logging_format)
     app.logger.addHandler(handler)
     app.run()
+
+
+
 
 
 
