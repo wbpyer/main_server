@@ -51,6 +51,7 @@ class User_excel(Base):
 
 
 
+
 class Vm_last_status(Base):
     '''用户最后一次状态表'''
     __tablename__ = 'vm_latest_status'

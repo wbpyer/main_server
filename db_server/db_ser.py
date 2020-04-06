@@ -71,10 +71,13 @@ def excel_delete(db_name):
             status_id = 1
         elif status_id =="报":
             status_id = 2
-        elif status_id == "垃":
+        elif status_id == "回收站":
             status_id =3
         elif status_id == "收":
             status_id =4
+
+        elif status_id == "发":
+            status_id = 5
 
         # date_id = data.get("date_id")
         # if date_id == "日":
@@ -200,21 +203,23 @@ def excel_add(db_name):
         file_ip = data.get('file_ip')
         user_id = data.get("user_id")
         user_name =data.get("user_name")
-        role = data.get("role")
+        role = data.get("role")  #这里面现在是业务
         role_id = data.get("role_id")
         department_id = data.get("department_id")
         department = data.get("department")
         status_id = data.get("status_id")
 
-        if status_id == "我的文件":
+        if status_id == "我的办公桌":
             status_id = 1
         elif status_id =="报":
             status_id = 2
-        elif status_id == "垃":
+        elif status_id == "回收站":
             status_id =3
         elif status_id == "收":
             status_id =4
 
+        elif status_id == "发":
+            status_id = 5
 
 
         # date_id = data.get("date_id")
@@ -248,7 +253,9 @@ def excel_add(db_name):
         # file = session.query(User_excel).filter(User_excel.filename == filename).filter(User_excel.status_id == status_id).filter(User_excel.date_id == date_id)\
         #     .filter(User_excel.work_id == work_id).all()
         file = session.query(User_excel).filter(User_excel.filename == filename).filter(
-            User_excel.status_id == status_id).all()
+            User_excel.status_id == status_id).filter(User_excel.role == role).all()
+
+        # todo 4.2做一个防止重复的查询，如果有重复的就更新路径，没有就新增，但是查询时候还要根据业务查一下。
 
 
         if file:
@@ -291,6 +298,107 @@ def excel_add(db_name):
     except Exception as e:
         app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ",e,request.remote_addr,request.user_agent.browser)
         print("记录日志",e)
+
+
+
+
+@app.route("/db/<string:db_name>/excel/add/lower",methods=['POST'])
+def excel_add_lower(db_name):
+    """
+    下发功能时候，替下属添加数据，但是有一点，不能更新，而是新建，
+    因为下发的，删不删，得自己决定，
+
+    :param db_name:
+    :return:
+    """
+    try:
+
+        data = request.json
+        print(data)
+        print(db_name)
+        database = db_name
+        conn_str = 'mysql+pymysql://{}:{}@{}:{}/{}'.format(user, password, host, port, database)
+        engine = sqlalchemy.create_engine(conn_str, echo=True)
+
+        # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        #下面的参数都是传参数，也就是放在requests里传进来的，filename,path,status,date,work,由虚拟机传过来，user,role,depart登陆之后，这个用户的信息，要有一个token，一直跟到虚拟机，
+        #再由虚拟机跟过来。否则，这个是完全解耦合的，你查不到权限库。
+
+
+        filename = data.get("file_name")
+        filepath = data.get("path")
+        file_ip = data.get('file_ip')
+        user_id = data.get("user_id")
+        user_name =data.get("user_name")   #这里能体现出是谁发下来的。
+        role = data.get("role")
+        role_id = data.get("role_id")
+        department_id = data.get("department_id")
+        department = data.get("department")
+        status_id = 5  # 下发的，在手下那里，体现的只能是发里面。
+
+
+        # date_id = data.get("date_id")
+        # if date_id == "日":
+        #     date_id = 1
+        # elif date_id =="周":
+        #     date_id = 2
+        # elif date_id == "旬":
+        #     date_id =3
+        # elif date_id == "月":
+        #     date_id =4
+        # elif date_id == "季":
+        #     date_id =5
+        # elif date_id == "半":
+        #     date_id =6
+        # elif date_id == "年":
+        #     date_id =7
+        #
+        # work_id = data.get("work_id")
+        # if work_id == "人":
+        #     work_id = 1
+        # elif work_id =="机":
+        #     work_id = 2
+        # elif work_id == "物":
+        #     work_id =3
+        # elif work_id == "法":
+        #     work_id =4
+
+        # file_type_id = data.get("file_type_id")  0.1暂时先不考虑。先放空
+
+
+
+        if all([department,department_id]):
+
+            excel = User_excel(filename=filename,path=filepath,deleted = 0,
+                           user_id=user_id,user_name = user_name,role=role,
+                           role_id= role_id,fgroup = file_ip,
+                           department_id=department_id,
+                            department = department,
+                           status_id=status_id)
+
+
+        else:
+            excel = User_excel(filename=filename,path=filepath,deleted = 0,
+                           user_id=user_id,user_name = user_name,role=role,
+                           role_id= role_id,fgroup = file_ip,
+                           status_id=status_id)
+        try:
+            session.add(excel)
+            session.commit()
+            return "ok",200
+        except Exception as e:
+            session.rollback()
+            print(e,"记录日志")
+            return "not ok",404
+
+    except Exception as e:
+        print(e)
+        app.logger.error("error_msg: %s remote_ip: %s user_agent: %s ",e,request.remote_addr,request.user_agent.browser)
+
+
+
 
 
 @app.route("/db/<string:db_name>/excel/add/leader",methods=['POST'])
@@ -396,13 +504,13 @@ def excel_add_leader(db_name):
 @app.route("/mysql/<string:db_name>/excel/find",methods=['POST'])
 def vm_latest_find(db_name):
     """
-    查找最后一次虚拟机状态，所有人逻辑都是固定的
+    根据业务查找最后一次虚拟机状态，所有人逻辑都是固定的
     :param db_name:
     :return:
     """
-    # data = request.json
-
-    # role = data.get("role")
+    data = request.json
+    # todo 这里要通过业务来查询。
+    business = data.get("role") # 业务名。
     # user_name = data.get('user_name')
     # user_id = data.get('user_id')
     # job_id = data.get("job_id")
@@ -419,10 +527,11 @@ def vm_latest_find(db_name):
         # 所有的都是这个模型，所以可以提前写好，应为可以复用，大量复用。
         Session = sessionmaker(bind=engine)
         session = Session()
-        """这里是固定的逻辑，就是查这张表中，最后一次记录里的地址返回来就行。"""
+        """这里是固定的逻辑，就是查这张表中，最后一次记录里的地址返回来就行。这张表里面有一个业务字段，我看现在有
+        个read字段是空闲的，所以就用这个字段就行。下面是具体的查询逻辑。"""
 
-        if session.query(Vm_last_status).all():
-            v = session.query(Vm_last_status).order_by(Vm_last_status.id.desc()).limit(1).one()
+        if session.query(Vm_last_status).filter(Vm_last_status.role == business).all():
+            v = session.query(Vm_last_status).filter(Vm_last_status.role == business).order_by(Vm_last_status.id.desc()).limit(1).one()
 
             print(v.id)
 
@@ -444,6 +553,7 @@ def vm_latest_find(db_name):
 def vm_latest_find_submit(db_name):
     """
     查找下级报送给上级的文件路径。为初始化工作区做准备。
+    这个接口没用，因为是用Redis实时收发
     :param db_name:
     :return:
     """
@@ -570,16 +680,16 @@ def move():
         # date_id = data.get("date")
 
 
-        if status_id == "我的文件":
+        if status_id == "我的办公桌":
             status_id = 1
         elif status_id =="报":
             status_id = 2
-        elif status_id == "垃":
+        elif status_id == "回收站":
             status_id =3
         elif status_id == "收":
             status_id =4
-        # elif status_id == "收":
-        #     status_id = 5
+        elif status_id == "发":
+            status_id = 5
 
 
 
@@ -624,7 +734,6 @@ def move():
 
         file = session.query(User_excel).filter(User_excel.filename == name). \
             filter(User_excel.status_id == status_id).all()
-
 
 
 
